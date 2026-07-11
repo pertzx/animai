@@ -2457,9 +2457,7 @@ export const useProjectStore = create<ProjectState>()(
         // Re-probe with FFmpeg if count is 1 or unset (handles legacy imports)
         if (audioTrackCount <= 1 && mediaItem.blob) {
           try {
-            const { getFFmpegFallback } = await import(
-              "@openreel/core/media"
-            );
+            const { getFFmpegFallback } = await import("@openreel/core");
             const ffmpeg = getFFmpegFallback();
             const probeResult = await ffmpeg.probeAudioStreams(mediaItem.blob);
             if (probeResult.audioStreamCount > 1) {
