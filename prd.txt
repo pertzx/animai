@@ -1,0 +1,164 @@
+# PRD — AnimAI: Editor de Vídeo Integrado com IA
+
+## 1. Visão Geral
+
+Editor de vídeo web com um assistente de IA integrado que entende o estado completo
+do projeto e consegue editar o vídeo por meio de comandos em linguagem natural.
+O usuário conversa com a IA num chat lateral (experiência similar ao Claude Code:
+pensamento → mensagem → execução de tools, tudo visível em ordem linear) e a IA
+executa ações reais no editor (cortar, aplicar efeitos, adicionar legendas, etc.).
+
+**Base:** fork/adaptação do editor open-source OpenReel
+(https://github.com/Augani/openreel-video), estendido com as features abaixo.
+
+## 2. Objetivos
+
+- Permitir que qualquer pessoa edite vídeo descrevendo o que quer, sem conhecer a timeline.
+- A IA sempre tem contexto completo do projeto (timeline + transcrição do áudio).
+- Experiência transparente: o usuário vê cada passo que a IA executa, em tempo real.
+- Projetos ficam na máquina do usuário (privacidade e custo zero de storage de mídia).
+- Monetização via assinatura (Stripe).
+
+## 3. Arquitetura Central
+
+### 3.1 JSON Global do Projeto (fonte de verdade)
+
+O editor mantém um documento JSON que descreve todo o estado do vídeo editado:
+
+- Metadados do projeto (nome, resolução, fps, duração).
+- Tracks e clipes (mídia de origem, in/out points, posição na timeline).
+- Efeitos, transições, animações e templates aplicados (com parâmetros).
+- Textos, legendas e overlays.
+- Transcrição do áudio com timestamps (ver 3.2).
+
+Requisitos:
+- Toda ação do usuário na UI atualiza o JSON; toda ação da IA passa pelo mesmo JSON.
+- Versionado por schema (campo `schemaVersion`) para permitir migrações futuras.
+- Serializável: é o formato de salvamento do projeto e o contexto enviado à IA.
+
+### 3.2 Speech-to-Text Local
+
+- Transcrição local (sem enviar áudio para servidor), ex.: Whisper via WASM/ONNX
+  (whisper.cpp compilado para web ou transformers.js).
+- Roda automaticamente ao importar mídia com áudio (com opção de desativar).
+- Saída: segmentos com `start`, `end`, `text` (e falante, se viável), gravados no
+  JSON global — assim a IA "entende" o que acontece no vídeo.
+- Deve rodar em background (Web Worker) sem travar a UI, com indicador de progresso.
+
+### 3.3 Agente de IA + Tools
+
+Pode configurar varios providers no painel de admin, iniciais: Nvidia, Openai.
+
+Fluxo de uma chamada:
+1. Monta-se o contexto: JSON global do projeto + histórico/resumo do chat.
+2. A IA responde em loop agêntico: pensamento (think) → mensagem → chamadas de tools.
+3. Cada tool executa uma mutação no JSON global (e a UI reflete imediatamente).
+
+Tools mínimas (v1):
+- `get_project_state` / `get_transcript` — leitura de contexto sob demanda.
+- `split_clip`, `trim_clip`, `move_clip`, `delete_clip` — edição de timeline.
+- `apply_effect`, `apply_transition`, `apply_template` — usando o catálogo do admin.
+- `add_text` / `add_captions` — textos e legendas (a partir da transcrição).
+- `adjust_audio` — volume, fade in/out, mute.
+
+Requisitos:
+- Toda mutação de tool é uma operação atômica com undo/redo integrado ao histórico
+  do editor (o usuário pode desfazer o que a IA fez).
+- Erros de tool voltam para a IA como resultado, para ela se corrigir.
+
+### 3.4 Memória do Chat (compactação local)
+
+- Histórico do chat persiste localmente por projeto (IndexedDB; localStorage só
+  como fallback — projetos de vídeo estouram o limite de ~5MB facilmente).
+- A cada 10 requisições, roda a função `compact`: a IA atualiza o resumo anterior
+  incorporando as últimas mensagens, com limite de 5.000 caracteres.
+- Contexto enviado nas chamadas = resumo compactado + mensagens recentes ainda
+  não compactadas.
+- Resultado: quando o usuário reabre o projeto, a IA "lembra" da conversa sem
+  depender de memória/cache no lado do provedor de IA.
+
+## 4. UX do Chat (estilo Claude Code)
+
+- Painel de chat acoplado ao editor.
+- Cada turno da IA renderiza, em ordem linear e em streaming:
+  1. Bloco de raciocínio ("pensando…", colapsável).
+  2. Mensagem de texto.
+  3. Cards de execução de tool/skill (nome, parâmetros resumidos, status:
+     executando / sucesso / erro).
+  4. Resposta final.
+- O usuário pode interromper a execução a qualquer momento.
+- Ações destrutivas em massa (ex.: "delete todos os clipes") pedem confirmação.
+
+## 5. Painel Admin
+
+Área restrita (role `admin`) para gerenciar o catálogo usado pelo editor e pela IA:
+
+- CRUD de efeitos: nome, descrição, parâmetros configuráveis, preview.
+- CRUD de transições e animações.
+- CRUD de templates (composições prontas reutilizáveis).
+- Publicar/despublicar itens; itens publicados aparecem no editor e viram opções
+  disponíveis para as tools da IA (`apply_effect`, `apply_template`).
+- O catálogo fica no MongoDB e é sincronizado para o client no login.
+
+## 6. Contas, Armazenamento e Pagamento
+
+### 6.1 Autenticação
+- Login obrigatório (e-mail/senha; OAuth Google como nice-to-have).
+- Roles: `user` e `admin`.
+
+### 6.2 Armazenamento (local-first)
+- Projetos (JSON global) e mídia ficam na máquina do usuário:
+  IndexedDB / OPFS (Origin Private File System) via client.
+- Ao trocar de máquina/navegador, o projeto não estará lá — o usuário
+  recarrega os arquivos e/ou importa o JSON do projeto (export/import de
+  projeto como arquivo é requisito).
+- No servidor (MongoDB) ficam apenas: contas, assinaturas, catálogo do admin
+  e metadados leves (lista de nomes de projetos, para o usuário saber o que tem).
+
+### 6.3 Pagamento (Stripe)
+- Assinatura mensal via Stripe (Checkout + webhooks).
+- Plano gratuito com limites (ex.: nº de requisições de IA/mês) e plano pago.
+- (Definir preços e limites exatos depois — fora do escopo deste PRD.)
+
+## 7. Stack
+
+- **Frontend:** React + Tailwind CSS (base OpenReel).
+- **Backend:** Node.js (auth, catálogo admin, proxy das chamadas de IA, Stripe).
+- **Banco:** MongoDB (contas, assinaturas, catálogo, metadados).
+- **Client storage:** IndexedDB / OPFS.
+- **STT:** Whisper local no browser (WASM/ONNX, em Web Worker).
+- **IA:** API de LLM com tool use e streaming (ex.: Claude), chamada via backend
+  (a API key nunca vai para o client).
+
+## 8. Escopo do MVP (v1)
+
+1. Editor base (OpenReel) rodando com o JSON global como fonte de verdade.
+2. Login + armazenamento local de projetos (salvar/abrir/exportar/importar).
+3. STT local alimentando o JSON.
+4. Chat com loop agêntico, streaming e as tools mínimas da seção 3.3.
+5. Memória do chat com compactação (seção 3.4).
+6. Painel admin com CRUD de efeitos e templates.
+7. Stripe com um plano pago simples.
+
+Fora do MVP: colaboração multiusuário, sync de projetos na nuvem, geração de
+mídia por IA (imagens/vídeo/voz), app mobile.
+
+## 9. Requisitos Não-Funcionais
+
+- STT e render nunca bloqueiam a thread principal (Web Workers).
+- Streaming da IA: primeiro token visível em < 2s (percepção de resposta).
+- Undo/redo cobre 100% das ações da IA.
+- O JSON global de um projeto típico (30 min de vídeo) deve serializar/carregar
+  em < 1s.
+- Nenhuma mídia do usuário sai da máquina, exceto o que for necessário no
+  contexto da IA (transcrição em texto e JSON do projeto — nunca o arquivo bruto).
+
+## 10. Riscos / Pontos em Aberto
+
+- Performance do Whisper no browser em máquinas fracas → oferecer modelo pequeno
+  por padrão e opção de modelo maior.
+- Tamanho do JSON global em projetos grandes pode estourar o contexto da IA →
+  tools de leitura sob demanda (3.3) em vez de mandar tudo sempre.
+- Licença do OpenReel: verificar compatibilidade com uso comercial antes do fork.
+- Perda de dados locais (usuário limpa o navegador) → reforçar export de projeto
+  e avisos na UI.

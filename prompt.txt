@@ -1,0 +1,671 @@
+# Video & Audio Semantic Analyzer V2
+ 
+## Contexto
+ 
+Estou desenvolvendo um editor de vídeo web semelhante à combinação de **CapCut Pro + Canva + Alight Motion**, porém com um **Agente de IA capaz de editar projetos automaticamente através de Tools**.
+ 
+Toda a edição ocorre preferencialmente localmente no navegador.
+ 
+O servidor é utilizado principalmente para recursos de IA.
+ 
+Não desejo depender de APIs pagas para análise de vídeo ou áudio.
+ 
+A arquitetura deve priorizar:
+ 
+ 
+- Modelos Open Source.
+ 
+- WebGPU.
+ 
+- WebAssembly.
+ 
+- Processamento local.
+ 
+- Execução otimizada para diferentes dispositivos.
+ 
+
+  
+# Estado atual do projeto
+ 
+Atualmente o sistema já possui:
+ 
+ 
+- Editor de vídeo funcional.
+ 
+- Timeline.
+ 
+- Sistema de camadas.
+ 
+- Objetos editáveis.
+ 
+- Ferramentas da IA para editar o projeto.
+ 
+- Agente de IA integrado.
+ 
+- IA consegue modificar partes do projeto.
+ 
+- IA consegue gerar legendas.
+ 
+- IA consegue descrever conteúdo de áudio.
+ 
+- IA consegue analisar áudio presente em vídeos.
+ 
+- STT (Speech to Text).
+ 
+- Contexto parcial do conteúdo do vídeo.
+ 
+
+ 
+O principal problema atual é que o sistema ainda não possui um analisador semântico completo de vídeos.
+  
+# Objetivo
+ 
+Criar um novo módulo chamado:
+ 
+`Semantic Media Analyzer`
+ 
+Esse módulo será responsável por analisar vídeos e áudios localmente e gerar uma:
+ 
+**Timeline Semântica completa do conteúdo.**
+ 
+A IA não deve receber o vídeo diretamente.
+ 
+Ela deve consumir apenas os eventos gerados pelo analisador.
+  
+# Arquitetura baseada em plugins
+ 
+Criar uma arquitetura modular.
+ 
+Cada analisador deve ser independente.
+ 
+Estrutura:
+ `Semantic Analyzer  ├── Speech Analyzer ├── OCR Analyzer ├── Scene Analyzer ├── Object Detector ├── Object Tracker ├── Face Analyzer ├── Pose Analyzer ├── Gesture Analyzer ├── Emotion Analyzer ├── Audio Event Analyzer ├── Music Analyzer ├── Environment Analyzer └── Timeline Builder ` 
+Cada plugin pode ser ativado ou desativado individualmente.
+  
+# Interface dos Plugins
+ 
+Todos os plugins devem seguir uma interface comum:
+ `interface SemanticAnalyzerPlugin {   analyze(input): Promise<SemanticEvent[]>  } ` 
+Evento:
+ `interface SemanticEvent {   start:number;   end:number;   type:string;   confidence:number;   metadata:Record<string, any>;  } ` 
+Todos os eventos obrigatoriamente devem possuir timestamps.
+  
+# Painel administrativo de testes
+ 
+Criar uma área exclusiva no painel Admin chamada:
+ 
+`Semantic Analyzer Lab`
+ 
+Essa área será usada para testar e configurar toda a integração.
+ 
+## Funções do painel:
+ 
+Permitir upload de um vídeo de teste.
+ 
+Após enviar o vídeo:
+ 
+ 
+- Executar análise em tempo real.
+ 
+- Mostrar preview do vídeo.
+ 
+- Mostrar todos os detectores funcionando.
+ 
+- Mostrar bounding boxes.
+ 
+- Mostrar pontos faciais.
+ 
+- Mostrar pose corporal.
+ 
+- Mostrar objetos detectados.
+ 
+- Mostrar textos encontrados.
+ 
+- Mostrar falas detectadas.
+ 
+- Mostrar eventos na timeline.
+ 
+
+  
+# Preview em tempo real
+ 
+Criar uma interface visual semelhante a ferramentas profissionais de visão computacional.
+ 
+Exibir:
+ 
+ 
+- Vídeo original.
+ 
+- Bounding boxes dos objetos.
+ 
+- Nome do objeto.
+ 
+- Confiança.
+ 
+- ID do tracking.
+ 
+- Landmarks do rosto.
+ 
+- Skeleton da pose.
+ 
+- Textos detectados.
+ 
+- Eventos acontecendo naquele momento.
+ 
+
+ 
+Exemplo:
+ `00:05.20  Pessoa #1 Confidence: 98%  Carro #2 Confidence: 95%  Texto detectado: "Promoção"  Expressão: Sorrindo  Pose: Em pé `  
+# Configurações gerais do analisador
+ 
+O Admin deve conseguir configurar:
+ 
+## Performance
+ 
+ 
+- FPS de análise.
+ 
+- Quantidade de frames analisados por segundo.
+ 
+- Resolução de análise.
+ 
+- Uso máximo de memória.
+ 
+- Uso de GPU.
+ 
+- Uso de CPU.
+ 
+- Habilitar/desabilitar WebGPU.
+ 
+- Habilitar/desabilitar WebAssembly.
+ 
+
+ 
+## Precisão
+ 
+ 
+- Threshold mínimo de confiança.
+ 
+- Modelo utilizado.
+ 
+- Quantidade de objetos detectados.
+ 
+- Frequência de atualização.
+ 
+
+ 
+## Recursos
+ 
+Ativar/desativar:
+ 
+ 
+- Speech Analyzer.
+ 
+- OCR.
+ 
+- Object Detection.
+ 
+- Object Tracking.
+ 
+- Face Detection.
+ 
+- Expression Detection.
+ 
+- Pose Detection.
+ 
+- Hand Detection.
+ 
+- Audio Detection.
+ 
+- Environment Detection.
+ 
+
+  
+# Configuração para usuários finais
+ 
+Nem todos os usuários terão dispositivos potentes.
+ 
+Criar uma configuração de análise no editor:
+ 
+## Modo Econômico
+ 
+Para celulares e computadores fracos.
+ 
+Ativar:
+ 
+ 
+- STT.
+ 
+- OCR básico.
+ 
+- Poucos objetos.
+ 
+- Baixa frequência de análise.
+ 
+
+  
+## Modo Balanceado
+ 
+Ativar:
+ 
+ 
+- STT.
+ 
+- OCR.
+ 
+- Objetos.
+ 
+- Pessoas.
+ 
+- Tracking.
+ 
+- Cena.
+ 
+
+  
+## Modo Avançado
+ 
+Para computadores fortes.
+ 
+Ativar:
+ 
+ 
+- Todos os detectores.
+ 
+- Face.
+ 
+- Emoções.
+ 
+- Pose.
+ 
+- Gestos.
+ 
+- Ambiente.
+ 
+- Eventos de áudio.
+ 
+
+  
+Também permitir configuração manual:
+ 
+Exemplo:
+ 
+☑ Detectar pessoas
+ 
+☑ Detectar veículos
+ 
+☑ Detectar animais
+ 
+☑ Detectar expressões
+ 
+☑ Detectar poses
+ 
+☐ Detectar ambiente
+ 
+O usuário escolhe o que deseja processar.
+  
+# Integrar Speech Analyzer
+ 
+Usar Whisper.cpp ou equivalente Open Source.
+ 
+Gerar:
+ 
+ 
+- Texto.
+ 
+- Timestamp por palavra.
+ 
+- Início da fala.
+ 
+- Fim da fala.
+ 
+- Pausas.
+ 
+- Silêncio.
+ 
+
+  
+# Integrar OCR
+ 
+Usar OCR local.
+ 
+Detectar:
+ 
+ 
+- Texto na tela.
+ 
+- Entrada do texto.
+ 
+- Saída do texto.
+ 
+- Mudança do texto.
+ 
+
+ 
+Salvar timestamps.
+  
+# Integrar Scene Detection
+ 
+Detectar:
+ 
+ 
+- Cortes.
+ 
+- Fade.
+ 
+- Transições.
+ 
+- Mudanças bruscas.
+ 
+- Alteração de câmera.
+ 
+
+ 
+Salvar timestamps.
+  
+# Integrar Object Detection
+ 
+Usar modelos Open Source como YOLO.
+ 
+Detectar:
+ 
+ 
+- Pessoa.
+ 
+- Carro.
+ 
+- Moto.
+ 
+- Ônibus.
+ 
+- Caminhão.
+ 
+- Bicicleta.
+ 
+- Cachorro.
+ 
+- Gato.
+ 
+- Pássaro.
+ 
+- Cavalo.
+ 
+- Celular.
+ 
+- Notebook.
+ 
+- Cadeira.
+ 
+- Mesa.
+ 
+- Televisão.
+ 
+- Garrafa.
+ 
+- Copo.
+ 
+- Bola.
+ 
+- Mochila.
+ 
+
+ 
+Todos os objetos devem possuir:
+ 
+ 
+- Timestamp.
+ 
+- Bounding box.
+ 
+- Confiança.
+ 
+- ID.
+ 
+
+  
+# Integrar Object Tracking
+ 
+Usar:
+ 
+ 
+- ByteTrack.
+ 
+- DeepSORT.
+ 
+- Ou equivalente.
+ 
+
+ 
+Objetivo:
+ 
+Manter identidade dos objetos.
+ 
+Exemplo:
+ `Pessoa #1  Pessoa #2  Carro #3 ` 
+durante todo o vídeo.
+  
+# Integrar Face Analyzer
+ 
+Usar MediaPipe Face Mesh.
+ 
+Detectar:
+ 
+ 
+- Rosto.
+ 
+- Landmarks.
+ 
+- Posição.
+ 
+- Direção da cabeça.
+ 
+- Rotação.
+ 
+
+  
+# Integrar Expression Analyzer
+ 
+Criar detector semelhante aos filtros:
+ 
+ 
+- TikTok.
+ 
+- Instagram.
+ 
+- Snapchat.
+ 
+
+ 
+Detectar:
+ 
+ 
+- Sorriso.
+ 
+- Surpresa.
+ 
+- Raiva.
+ 
+- Tristeza.
+ 
+- Medo.
+ 
+- Neutro.
+ 
+
+ 
+Também detectar:
+ 
+ 
+- Boca aberta.
+ 
+- Olhos fechados.
+ 
+- Piscada.
+ 
+- Olhando para câmera.
+ 
+- Direção do olhar.
+ 
+- Cabeça inclinada.
+ 
+- Cabeça girada.
+ 
+
+ 
+Tudo com timestamp.
+  
+# Integrar Pose Detection
+ 
+Usar MediaPipe Pose.
+ 
+Detectar:
+ 
+ 
+- Sentado.
+ 
+- Em pé.
+ 
+- Andando.
+ 
+- Correndo.
+ 
+- Pulando.
+ 
+- Levantando braço.
+ 
+- Apontando.
+ 
+- Acenando.
+ 
+- Abaixando.
+ 
+- Ajoelhado.
+ 
+
+  
+# Integrar Hand Detection
+ 
+Detectar:
+ 
+ 
+- Mãos.
+ 
+- Dedos.
+ 
+- Gestos.
+ 
+
+  
+# Integrar Audio Event Detection
+ 
+Detectar:
+ 
+ 
+- Música.
+ 
+- Aplausos.
+ 
+- Explosões.
+ 
+- Buzina.
+ 
+- Risadas.
+ 
+- Choro.
+ 
+- Passos.
+ 
+- Silêncio.
+ 
+
+  
+# Integrar Environment Detection
+ 
+Detectar:
+ 
+ 
+- Praia.
+ 
+- Cidade.
+ 
+- Estrada.
+ 
+- Floresta.
+ 
+- Escritório.
+ 
+- Academia.
+ 
+- Cozinha.
+ 
+- Quarto.
+ 
+- Sala.
+ 
+
+  
+# Timeline Semântica
+ 
+Após todos os plugins terminarem:
+ 
+Criar uma timeline de eventos.
+ 
+Exemplo:
+ `00:00 Pessoa aparece  00:02 Pessoa começa a falar  00:05 Texto "Promoção" aparece  00:08 Pessoa sorri  00:10 Carro passa  00:14 Pessoa aponta  00:17 Texto desaparece  00:20 Silêncio  00:24 Mudança de cena `  
+# JSON Final
+ 
+Gerar:
+ `{  "events":[   {    "start":10.2,    "end":13.8,    "type":"person_running",    "confidence":0.98,    "metadata":{     "trackId":4    }   }  ] } `  
+# Objetivo final
+ 
+O agente de IA deve usar essa Timeline Semântica para:
+ 
+ 
+- Cortar silêncios.
+ 
+- Dar zoom quando a pessoa sorrir.
+ 
+- Encontrar momentos com animais.
+ 
+- Encontrar veículos.
+ 
+- Criar Shorts.
+ 
+- Criar anúncios.
+ 
+- Criar cortes automáticos.
+ 
+- Encontrar melhores momentos.
+ 
+- Editar baseado em intenção.
+ 
+
+ 
+A IA nunca deve analisar diretamente o vídeo.
+ 
+Ela deve trabalhar exclusivamente com os eventos gerados pelo Semantic Media Analyzer.
+  
+# Requisitos técnicos
+ 
+ 
+- Priorizar Open Source.
+ 
+- Sem APIs pagas para análise.
+ 
+- Execução local.
+ 
+- Arquitetura modular.
+ 
+- Plugins independentes.
+ 
+- Alto desempenho.
+ 
+- Compatível com WebGPU/WebAssembly.
+ 
+- Adaptável ao hardware do usuário.
+ 
+- Possibilidade de ativar/desativar recursos.
+ 
+- Timestamps precisos.
+ 
+- Preparado para análise em tempo real.
