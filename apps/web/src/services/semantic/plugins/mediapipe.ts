@@ -32,16 +32,50 @@ export function getVisionFileset() {
   return filesetPromise;
 }
 
+let cachedBackend: "GPU" | "CPU" | null = null;
+
 /**
- * Cria um task do MediaPipe tentando GPU primeiro (se permitido) e caindo para
- * CPU/WASM se o delegate GPU falhar — muitos navegadores/GPUs não suportam o
- * delegate GPU, o que antes fazia o detector falhar silenciosamente.
+ * Auto-detecta o melhor backend para os modelos MediaPipe. O delegate "GPU"
+ * usa WebGL2; se o dispositivo não suporta (ou é um contexto de software
+ * lento), usa CPU/WASM. Resultado cacheado.
+ */
+export function detectBestBackend(): "GPU" | "CPU" {
+  if (cachedBackend) return cachedBackend;
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2", {
+      failIfMajorPerformanceCaveat: true, // evita GPU emulada por software
+    }) as WebGL2RenderingContext | null;
+    if (gl) {
+      const debug = gl.getExtension("WEBGL_debug_renderer_info");
+      const renderer = debug
+        ? String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL))
+        : "";
+      // Renderizadores por software (swiftshader/llvmpipe) são lentos → CPU.
+      const software = /swiftshader|software|llvmpipe|basic render/i.test(
+        renderer,
+      );
+      cachedBackend = software ? "CPU" : "GPU";
+    } else {
+      cachedBackend = "CPU";
+    }
+  } catch {
+    cachedBackend = "CPU";
+  }
+  return cachedBackend;
+}
+
+/**
+ * Cria um task do MediaPipe no melhor backend detectado, com fallback para
+ * CPU/WASM se o delegate GPU falhar. Só tenta GPU quando o WebGL2 real está
+ * disponível — evita a tentativa lenta de GPU em quem não suporta.
  */
 export async function createWithDelegateFallback<T>(
   create: (delegate: "GPU" | "CPU") => Promise<T>,
   preferGpu: boolean,
 ): Promise<T> {
-  if (preferGpu) {
+  const backend = detectBestBackend();
+  if (preferGpu && backend === "GPU") {
     try {
       return await create("GPU");
     } catch (err) {

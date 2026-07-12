@@ -21,6 +21,7 @@ import { resolveConfig } from "./config";
 import { extractFrames, estimateFrameCount } from "./frame-source";
 import { buildSemanticTimeline } from "./timeline-builder";
 import { createPlugins } from "./plugins";
+import { detectBestBackend } from "./plugins/mediapipe";
 
 export interface AnalyzeOptions {
   blob: Blob;
@@ -55,12 +56,20 @@ export async function analyzeMedia(
     signal: options.signal,
   };
 
+  // Auto-detecta o melhor backend (GPU/WebGL2 vs CPU/WASM) para este
+  // dispositivo e o usa — em vez de depender só do toggle manual.
+  const backend = detectBestBackend();
+  config.performance.useWebGPU = backend === "GPU";
+
   const plugins: SemanticAnalyzerPlugin[] = createPlugins(config);
   // Estado por plugin: eventos brutos acumulados (para finalize).
   const rawByPlugin = new Map<string, SemanticEvent[]>();
   for (const p of plugins) rawByPlugin.set(p.id, []);
 
-  options.onProgress?.(0, "Carregando modelos");
+  options.onProgress?.(
+    0,
+    `Carregando modelos (${backend === "GPU" ? "GPU" : "CPU/WASM"})`,
+  );
   // Init com status por detector — falhas ficam VISÍVEIS (antes eram engolidas,
   // por isso "só fala e texto" apareciam: os modelos de visão falhavam calados).
   const statuses: DetectorStatus[] = await Promise.all(
@@ -81,18 +90,22 @@ export async function analyzeMedia(
   );
   options.onDetectorStatus?.(statuses);
 
-  // 1. Plugins de sequência (áudio / STT) — rodam uma vez sobre a mídia toda.
+  // 1. Plugins de sequência (áudio / STT) — rodam em paralelo: o STT (worker
+  // Whisper) sobrepõe com a análise de áudio/música em vez de um por vez.
   const sequencePlugins = plugins.filter((p) => p.analyzeSequence);
-  for (const p of sequencePlugins) {
-    if (options.signal.aborted) break;
-    options.onProgress?.(0.05, `Analisando ${p.label}`);
-    try {
-      const events = await p.analyzeSequence!(context);
-      rawByPlugin.get(p.id)!.push(...events);
-      options.onEvents?.(events);
-    } catch {
-      /* plugin opcional falhou; segue */
-    }
+  if (sequencePlugins.length > 0) {
+    options.onProgress?.(0.05, "Analisando áudio e fala");
+    await Promise.all(
+      sequencePlugins.map(async (p) => {
+        try {
+          const events = await p.analyzeSequence!(context);
+          rawByPlugin.get(p.id)!.push(...events);
+          options.onEvents?.(events);
+        } catch {
+          /* plugin opcional falhou; segue */
+        }
+      }),
+    );
   }
 
   // 2. Plugins de visão — um passe de frames alimenta todos.
@@ -115,18 +128,22 @@ export async function analyzeMedia(
         frame.bitmap.close();
         break;
       }
+      // Executa TODOS os detectores do frame ao mesmo tempo (Promise.all):
+      // os baseados em worker (OCR) rodam de fato em paralelo com os de visão,
+      // acelerando a resposta em vez de um plugin por vez.
       const frameEvents: SemanticEvent[] = [];
-      for (const p of framePlugins) {
-        try {
-          const evs = await p.analyzeFrame!(frame, context);
-          if (evs.length) {
-            rawByPlugin.get(p.id)!.push(...evs);
-            frameEvents.push(...evs);
-          }
-        } catch {
-          /* frame ruim; ignora */
+      const results = await Promise.all(
+        framePlugins.map((p) =>
+          p.analyzeFrame!(frame, context).catch(() => [] as SemanticEvent[]),
+        ),
+      );
+      framePlugins.forEach((p, i) => {
+        const evs = results[i];
+        if (evs.length) {
+          rawByPlugin.get(p.id)!.push(...evs);
+          frameEvents.push(...evs);
         }
-      }
+      });
       options.onFrame?.(frame, frameEvents);
       if (frameEvents.length) options.onEvents?.(frameEvents);
       frame.bitmap.close();

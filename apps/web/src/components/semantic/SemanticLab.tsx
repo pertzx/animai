@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, Play, Square, Upload, X } from "lucide-react";
 import { analyzeMedia } from "../../services/semantic/orchestrator";
+import { detectBestBackend } from "../../services/semantic/plugins/mediapipe";
 import { decodeBlobAudio } from "../../services/semantic/audio-decode";
 import { drawOverlay } from "./overlay-draw";
 import {
@@ -58,13 +59,18 @@ function describeFrameEvent(e: SemanticEvent): string {
     return `texto: "${String(m.text ?? "").slice(0, 24)}"`;
   if (e.type === "scene_cut") return "corte de cena";
   if (e.type === "scene_fade") return "fade";
-  if (e.type === "environment_raw" || e.type === "environment")
-    return `ambiente: ${m.scene}`;
+  if (
+    e.type === "environment_raw" ||
+    e.type === "environment" ||
+    e.type === "environment_frame"
+  )
+    return `ambiente: ${m.scene}${m.openOrClosed ? ` (${m.openOrClosed})` : ""}`;
   return e.type;
 }
 
 export const SemanticLab: React.FC = () => {
   const [config, setConfig] = useState<AnalyzerConfig>(() => getAnalyzerConfig());
+  const [detectedBackend] = useState(() => detectBestBackend());
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [isImage, setIsImage] = useState(false);
@@ -501,21 +507,14 @@ export const SemanticLab: React.FC = () => {
               }
             />
           </label>
-          <label className="flex items-center gap-2 text-[11px] text-fg-2">
-            <input
-              type="checkbox"
-              checked={config.performance.useWebGPU}
-              onChange={(e) =>
-                patchConfig({
-                  performance: {
-                    ...config.performance,
-                    useWebGPU: e.target.checked,
-                  },
-                })
-              }
-            />
-            Usar WebGPU (senão WASM/CPU)
-          </label>
+          <p className="text-[10px] text-fg-muted">
+            Backend:{" "}
+            <span className="text-fg-2">
+              {detectedBackend === "GPU"
+                ? "GPU (WebGL2) — detectado automaticamente"
+                : "CPU/WASM — detectado automaticamente"}
+            </span>
+          </p>
         </div>
 
         {/* Precisão */}

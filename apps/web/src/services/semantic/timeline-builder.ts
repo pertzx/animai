@@ -53,7 +53,7 @@ function describe(event: SemanticEvent): string | null {
     case "music":
       return `Música${meta.bpm ? ` (~${meta.bpm} BPM)` : ""}`;
     case "environment":
-      return `Ambiente: ${meta.scene ?? "cena"}`;
+      return `Ambiente: ${meta.scene ?? "cena"}${meta.openOrClosed ? ` (${meta.openOrClosed})` : ""}`;
     default:
       return event.type;
   }
