@@ -74,7 +74,7 @@ export class ObjectAnalyzer implements SemanticAnalyzerPlugin {
     context: AnalyzerContext,
   ): Promise<SemanticEvent[]> {
     if (!this.detector) return [];
-    const result: ObjectDetectorResult = this.detector.detect(frame.bitmap);
+    const result: ObjectDetectorResult = this.detector.detect(frame.image);
     const wanted = context.config.objectClasses;
     const events: SemanticEvent[] = [];
     for (const det of result.detections) {

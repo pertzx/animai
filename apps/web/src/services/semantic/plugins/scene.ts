@@ -15,16 +15,16 @@ const BINS = 16;
 const CUT_THRESHOLD = 0.45; // distância de histograma p/ corte
 const FADE_LUMA = 0.08; // luminância média p/ considerar preto/fade
 
-function lumaHistogram(bitmap: ImageBitmap): {
+function lumaHistogram(source: HTMLCanvasElement): {
   hist: Float32Array;
   meanLuma: number;
 } {
   const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
+  canvas.width = source.width;
+  canvas.height = source.height;
   const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-  ctx.drawImage(bitmap, 0, 0);
-  const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+  ctx.drawImage(source, 0, 0);
+  const { data } = ctx.getImageData(0, 0, source.width, source.height);
   const hist = new Float32Array(BINS);
   let sum = 0;
   const px = data.length / 4;
@@ -56,7 +56,7 @@ export class SceneAnalyzer implements SemanticAnalyzerPlugin {
   async init(): Promise<void> {}
 
   async analyzeFrame(frame: AnalyzerFrame): Promise<SemanticEvent[]> {
-    const { hist, meanLuma } = lumaHistogram(frame.bitmap);
+    const { hist, meanLuma } = lumaHistogram(frame.image);
     const events: SemanticEvent[] = [];
 
     if (this.prevHist) {

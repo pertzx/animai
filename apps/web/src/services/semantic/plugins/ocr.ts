@@ -57,7 +57,7 @@ export class OcrAnalyzer implements SemanticAnalyzerPlugin {
     const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(frame.bitmap, 0, 0, w, h);
+    ctx.drawImage(frame.image, 0, 0, w, h);
     // Pré-processa: cinza + aumento de contraste ajuda muito o Tesseract.
     const img = ctx.getImageData(0, 0, w, h);
     const d = img.data;

@@ -103,7 +103,7 @@ export class EnvironmentAnalyzer implements SemanticAnalyzerPlugin {
     const canvas = document.createElement("canvas");
     canvas.width = frame.width;
     canvas.height = frame.height;
-    canvas.getContext("2d")!.drawImage(frame.bitmap, 0, 0);
+    canvas.getContext("2d")!.drawImage(frame.image, 0, 0);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
 
     // Etapa 1: aberto vs fechado (ensemble → média).

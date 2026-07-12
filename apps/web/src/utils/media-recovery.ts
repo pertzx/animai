@@ -4,6 +4,10 @@ export async function generateThumbnailFromBlob(
   blob: Blob,
   type: "video" | "audio" | "image",
 ): Promise<string | null> {
+  // Só gera de um Blob real — `{}` da serialização faria createObjectURL lançar.
+  if (!(blob instanceof Blob)) {
+    return null;
+  }
   if (type === "audio") {
     return null;
   }
@@ -79,16 +83,22 @@ export async function restoreMediaItem(
   item: MediaItem,
   storedBlob: Blob | undefined,
 ): Promise<MediaItem> {
-  const blob = storedBlob || item.blob;
+  // IMPORTANTE: após salvar/carregar o projeto (JSON), item.blob vira `{}`
+  // (a serialização de um File perde o binário) — que é "truthy" mas NÃO é um
+  // Blob. Considere blob apenas o que é de fato um Blob, senão o thumbnail
+  // tenta ler `{}` e o recovery quebra.
+  const validStored = storedBlob instanceof Blob ? storedBlob : null;
+  const validItemBlob = item.blob instanceof Blob ? item.blob : null;
+  const blob = validStored || validItemBlob;
 
   if (!blob) {
     // Sem blob armazenado. Se guardamos só o handle do arquivo (import via
     // File System Access — prompt.txt #1), vira placeholder para o fluxo de
-    // restauração por FileSystemFileHandle (loadProject) recuperá-lo do disco.
+    // restauração por FileSystemFileHandle recuperá-lo do disco.
     if (item.sourceFile) {
       return { ...item, blob: null, isPlaceholder: true };
     }
-    return item;
+    return { ...item, blob: null };
   }
 
   let thumbnailUrl = item.thumbnailUrl;

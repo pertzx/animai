@@ -16,8 +16,6 @@ import {
   getCurrentProjectContext,
   buildProjectContext,
 } from "./project-context";
-import { insightsManager } from "./insights-manager";
-import { transcriptionManager } from "./transcription-manager";
 
 /** OpenAI-compatible tool definition sent to the LLM. */
 export interface AiToolDefinition {
@@ -648,17 +646,20 @@ export async function executeAiTool(
         return { ok: true, result: getCurrentProjectContext() };
 
       case "get_transcript": {
-        const context = getCurrentProjectContext();
+        const { semanticAnalysisManager } = await import(
+          "../semantic/analysis-manager"
+        );
         const mediaId = str(args.mediaId);
+        // Garante a análise (cache → na hora; em andamento → espera; senão roda).
+        if (mediaId) await semanticAnalysisManager.ensure(mediaId);
+        const context = getCurrentProjectContext();
         const transcripts = mediaId
           ? context.transcripts.filter((t) => t.mediaId === mediaId)
           : context.transcripts;
         if (mediaId && transcripts.length === 0) {
-          // Dispara a transcrição agora para a próxima tentativa funcionar.
-          transcriptionManager.enqueue(mediaId);
           return {
             ok: false,
-            error: `Nenhuma transcrição para a mídia ${mediaId}. A transcrição local foi iniciada agora — tente novamente em ~1 minuto, ou o áudio pode não conter fala (use get_media_insights para o perfil de áudio).`,
+            error: `Nenhuma fala transcrita para a mídia ${mediaId} (o áudio pode não conter fala). Use get_media_insights/get_semantic_timeline para o resto.`,
           };
         }
         return { ok: true, result: transcripts };
@@ -674,24 +675,27 @@ export async function executeAiTool(
           return { ok: false, error: `Mídia ${mediaId} não existe no projeto.` };
         }
 
-        // Garante a análise das mídias pedidas, disparando-a se necessário
-        // (a tool espera a análise local terminar — pode levar ~1 min).
+        // Garante a análise das mídias pedidas (cache → na hora; em andamento →
+        // espera a atual; senão dispara). Um único passe alimenta os insights.
+        const { semanticAnalysisManager } = await import(
+          "../semantic/analysis-manager"
+        );
         const targetIds = mediaId
           ? [mediaId]
           : store.project.mediaLibrary.items
               .filter((m) => m.type !== "image")
               .map((m) => m.id);
-        const selected = (
-          await Promise.all(
-            targetIds.map((id) => insightsManager.waitForInsight(id)),
-          )
-        ).filter((i): i is NonNullable<typeof i> => i !== null);
+        await Promise.all(
+          targetIds.map((id) => semanticAnalysisManager.ensure(id)),
+        );
+        const insights = useProjectStore.getState().project.mediaInsights ?? [];
+        const selected = insights.filter((i) => targetIds.includes(i.mediaId));
 
         if (selected.length === 0) {
           return {
             ok: false,
             error:
-              "A análise local falhou ou não terminou a tempo. Peça ao usuário para clicar em 'reanalisar mídias' no painel do assistente e verificar avisos na tela.",
+              "A análise local falhou ou não terminou. Peça ao usuário para clicar em 'reanalisar mídias' no painel do assistente.",
           };
         }
         return {
@@ -709,12 +713,15 @@ export async function executeAiTool(
       }
 
       case "run_semantic_analysis": {
-        const { ensureSemanticTimeline } = await import("../semantic/run");
+        const { semanticAnalysisManager } = await import(
+          "../semantic/analysis-manager"
+        );
         const mediaId = str(args.mediaId) ?? firstVideoMediaId(store);
         if (!mediaId) {
           return { ok: false, error: "Nenhuma mídia de vídeo no projeto." };
         }
-        const timeline = await ensureSemanticTimeline(mediaId, {
+        // Cache → entrega na hora; em andamento → espera junto; senão roda.
+        const timeline = await semanticAnalysisManager.ensure(mediaId, {
           force: args.force === true,
         });
         if (!timeline) {

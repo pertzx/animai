@@ -65,9 +65,14 @@ export const RecoveryDialog: React.FC<RecoveryDialogProps> = ({
     onDismiss();
   };
 
-  const handleRecover = (saveId: string) => {
+  const handleRecover = async (saveId: string) => {
     setSelectedSave(saveId);
-    onRecover(saveId);
+    try {
+      // onRecover pode ser async; se falhar, libera o botão em vez de travar.
+      await onRecover(saveId);
+    } finally {
+      setSelectedSave(null);
+    }
   };
 
   return (

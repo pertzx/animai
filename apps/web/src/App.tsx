@@ -13,8 +13,7 @@ import { PrivacyPage, TermsPage } from "./pages/LegalPages";
 import { useUIStore } from "./stores/ui-store";
 import { useProjectStore } from "./stores/project-store";
 import { useAuthStore, apiRequest } from "./stores/auth-store";
-import { transcriptionManager } from "./services/ai/transcription-manager";
-import { insightsManager } from "./services/ai/insights-manager";
+import { semanticAnalysisManager } from "./services/semantic/analysis-manager";
 import { useRouter } from "./hooks/use-router";
 import { useProjectRecovery } from "./hooks/useProjectRecovery";
 import { useKieAIPoller } from "./hooks/useKieAIPoller";
@@ -70,12 +69,10 @@ function App() {
   }, [token, route, navigate]);
 
   useEffect(() => {
-    transcriptionManager.start();
-    insightsManager.start();
-    return () => {
-      transcriptionManager.stop();
-      insightsManager.stop();
-    };
+    // Um único analisador semântico auto-roda na mídia importada (conforme as
+    // configurações) e alimenta transcript/insights/timeline de uma vez.
+    semanticAnalysisManager.start();
+    return () => semanticAnalysisManager.stop();
   }, []);
 
   useEffect(() => {

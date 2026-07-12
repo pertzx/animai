@@ -61,7 +61,7 @@ export class HandsAnalyzer implements SemanticAnalyzerPlugin {
   ): Promise<SemanticEvent[]> {
     if (!this.recognizer) return [];
     const result: GestureRecognizerResult = this.recognizer.recognize(
-      frame.bitmap,
+      frame.image,
     );
     const events: SemanticEvent[] = [];
     const minConf = context.config.precision.minConfidence;

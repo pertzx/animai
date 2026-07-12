@@ -30,12 +30,7 @@ import { useChatStore } from "../../stores/chat-store";
 import { useProjectStore } from "../../stores/project-store";
 import { apiRequest, useAuthStore } from "../../stores/auth-store";
 import { Shield, LogOut, RefreshCw } from "lucide-react";
-import {
-  isAutoTranscribeEnabled,
-  setAutoTranscribeEnabled,
-  transcriptionManager,
-} from "../../services/ai/transcription-manager";
-import { insightsManager } from "../../services/ai/insights-manager";
+import { semanticAnalysisManager } from "../../services/semantic/analysis-manager";
 import {
   describeAttachments,
   registerAttachment,
@@ -302,9 +297,8 @@ export const ChatPanel: React.FC = () => {
   const projectId = useProjectStore((s) => s.project.id);
   const user = useAuthStore((s) => s.user);
   const [input, setInput] = useState("");
-  const [autoStt, setAutoStt] = useState(isAutoTranscribeEnabled());
-  const [sttStatus, setSttStatus] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
+  const [analysisStatus, setAnalysisStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -312,16 +306,14 @@ export const ChatPanel: React.FC = () => {
     void initForProject(projectId);
   }, [projectId, initForProject]);
 
+  // Status da análise semântica automática (STT + visão + áudio num só passe).
   useEffect(() => {
-    return transcriptionManager.onStateChange(({ activeMediaId, status }) => {
-      setSttStatus(activeMediaId ? status : null);
-    });
-  }, []);
-
-  const [insightStatus, setInsightStatus] = useState<string | null>(null);
-  useEffect(() => {
-    return insightsManager.onStateChange(({ activeMediaId, status }) => {
-      setInsightStatus(activeMediaId ? status : null);
+    return semanticAnalysisManager.onStateChange((s) => {
+      setAnalysisStatus(
+        s.phase === "running"
+          ? `${s.stage} (${Math.round(s.progress * 100)}%)`
+          : null,
+      );
     });
   }, []);
 
@@ -355,32 +347,15 @@ export const ChatPanel: React.FC = () => {
           <span className="text-[10px] text-fg-muted">compactando memória…</span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <label
-            className="flex cursor-pointer items-center gap-1 text-[10px] text-fg-muted"
-            title="Transcrever automaticamente o áudio das mídias importadas (local, via Whisper)"
-          >
-            <input
-              type="checkbox"
-              checked={autoStt}
-              onChange={(e) => {
-                setAutoStt(e.target.checked);
-                setAutoTranscribeEnabled(e.target.checked);
-              }}
-            />
-            STT auto
-          </label>
           <button
             className="text-fg-muted hover:text-accent"
-            title="Reanalisar mídias (transcrição, áudio e texto na tela)"
+            title="Reanalisar todas as mídias (análise semântica completa)"
             onClick={() => {
-              const n = insightsManager.reanalyzeAll();
               useProjectStore
                 .getState()
-                .project.mediaLibrary.items.filter((m) => m.type !== "image")
-                .forEach((m) => transcriptionManager.enqueue(m.id));
-              if (n === 0) {
-                setInsightStatus(null);
-              }
+                .project.mediaLibrary.items.forEach((m) =>
+                  void semanticAnalysisManager.reanalyze(m.id),
+                );
             }}
           >
             <RefreshCw size={13} />
@@ -413,16 +388,10 @@ export const ChatPanel: React.FC = () => {
         </div>
       </div>
 
-      {sttStatus && (
+      {analysisStatus && (
         <div className="flex items-center gap-2 border-b border-border bg-bg-2 px-3 py-1 text-[11px] text-fg-muted">
           <Loader2 size={11} className="animate-spin" />
-          Transcrevendo áudio localmente ({sttStatus})…
-        </div>
-      )}
-      {insightStatus && (
-        <div className="flex items-center gap-2 border-b border-border bg-bg-2 px-3 py-1 text-[11px] text-fg-muted">
-          <Loader2 size={11} className="animate-spin" />
-          Analisando mídia localmente ({insightStatus})…
+          Analisando mídia localmente ({analysisStatus})…
         </div>
       )}
 

@@ -14,8 +14,10 @@ import {
   defaultModeForTier,
   getAnalyzerConfig,
   getSavedMode,
+  isAutoAnalyzeEnabled,
   saveAnalyzerConfig,
   setAnalyzerMode,
+  setAutoAnalyzeEnabled,
   type AnalyzerMode,
 } from "../../../services/semantic/config";
 import type { AnalyzerConfig, AnalyzerId } from "../../../services/semantic/types";
@@ -42,10 +44,17 @@ const MODES: Array<{
   icon: typeof Gauge;
 }> = [
   {
+    id: "critico",
+    label: "Crítico",
+    description:
+      "Para 4 GB de RAM / Android fraco. Só fala, áudio e cenas, sem modelos de visão pesados — evita travar por falta de memória.",
+    icon: Battery,
+  },
+  {
     id: "economico",
     label: "Econômico",
     description:
-      "Para celulares e PCs fracos. Só o essencial (fala, texto, áudio, cenas) em baixa frequência.",
+      "Para celulares e PCs fracos. Fala, texto, áudio e cenas em baixa frequência.",
     icon: Battery,
   },
   {
@@ -68,6 +77,7 @@ export const AnalysisPanel: React.FC = () => {
   const [mode, setMode] = useState<AnalyzerMode>(getSavedMode());
   const [config, setConfig] = useState<AnalyzerConfig>(getAnalyzerConfig());
   const [tier, setTier] = useState<"low" | "mid" | "high" | null>(null);
+  const [autoAnalyze, setAutoAnalyze] = useState(isAutoAnalyzeEnabled());
 
   useEffect(() => {
     getDeviceProfile()
@@ -101,6 +111,24 @@ export const AnalysisPanel: React.FC = () => {
         rostos, cenas, fala e mais. Escolha quanto processar de acordo com a
         potência do seu aparelho.
       </p>
+
+      <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm text-text-primary">
+        <input
+          type="checkbox"
+          checked={autoAnalyze}
+          onChange={(e) => {
+            setAutoAnalyzeEnabled(e.target.checked);
+            setAutoAnalyze(e.target.checked);
+          }}
+        />
+        <span>
+          Analisar automaticamente ao importar
+          <span className="block text-xs text-text-muted">
+            Ao importar qualquer mídia, a análise semântica começa sozinha em
+            segundo plano.
+          </span>
+        </span>
+      </label>
 
       <div className="space-y-2">
         {MODES.map((m) => {

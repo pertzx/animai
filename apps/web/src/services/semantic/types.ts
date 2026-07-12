@@ -34,12 +34,17 @@ export type AnalyzerId =
   | "music"
   | "environment";
 
-/** Um frame amostrado do vídeo (imagem + tempo na timeline). */
+/**
+ * Um frame amostrado do vídeo (imagem + tempo). `image` é a fonte pronta para
+ * os modelos de visão — um canvas reutilizado (Opt 7: evita createImageBitmap
+ * por frame, reduzindo alocação de textura/GC). MediaPipe, drawImage e OCR
+ * aceitam HTMLCanvasElement diretamente.
+ */
 export interface AnalyzerFrame {
   /** Tempo do frame em segundos. */
   time: number;
-  /** Bitmap pronto para modelos de visão (dimensões já reduzidas). */
-  bitmap: ImageBitmap;
+  /** Fonte de imagem (canvas reduzido) para os detectores. */
+  image: HTMLCanvasElement;
   width: number;
   height: number;
   /** Índice do frame na amostragem. */
@@ -152,6 +157,21 @@ export interface SemanticSummaryLine {
   time: number;
   text: string;
 }
+
+/**
+ * Cache granular por plugin (Opt 9): eventos JÁ finalizados de um detector,
+ * mais a assinatura da config que os gerou. Ao reanalisar, plugins cuja
+ * assinatura não mudou são reaproveitados sem rodar de novo — trocar 1 detector
+ * não reprocessa os outros (e nunca re-roda o Whisper por causa de um toggle
+ * de visão).
+ */
+export interface PluginCacheEntry {
+  sig: string;
+  events: SemanticEvent[];
+}
+
+/** mediaId → (pluginId → entrada de cache). */
+export type PluginCache = Record<string, PluginCacheEntry>;
 
 /** Resultado do carregamento de um detector (para diagnóstico no Lab). */
 export interface DetectorStatus {

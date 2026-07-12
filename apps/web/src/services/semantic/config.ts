@@ -12,7 +12,23 @@ import type {
   ResolvedAnalyzerConfig,
 } from "./types";
 
-export type AnalyzerMode = "economico" | "balanceado" | "avancado" | "manual";
+export type AnalyzerMode =
+  | "critico"
+  | "economico"
+  | "balanceado"
+  | "avancado"
+  | "manual";
+
+/** Máx. de modelos de visão inicializados ao mesmo tempo, por modo (Opt 3). */
+export const MAX_CONCURRENT_MODELS: Record<
+  Exclude<AnalyzerMode, "manual">,
+  number
+> = {
+  critico: 1,
+  economico: 1,
+  balanceado: 2,
+  avancado: 3,
+};
 
 export const ALL_ANALYZERS: AnalyzerId[] = [
   "speech",
@@ -45,6 +61,20 @@ export const MODE_PRESETS: Record<
   Exclude<AnalyzerMode, "manual">,
   AnalyzerConfig
 > = {
+  // Hardware crítico (4 GB RAM, dual-core, Android low-end): mínimo absoluto,
+  // sem modelos de visão pesados — evita OOM/swap. Só fala, áudio e cenas.
+  critico: {
+    performance: {
+      analysisFps: 0.33,
+      analysisResolution: 256,
+      maxObjects: 3,
+      useWebGPU: false,
+      useWasm: true,
+    },
+    precision: { minConfidence: 0.5 },
+    enabled: enabledFor(["speech", "audio", "scene"]),
+    objectClasses: [],
+  },
   // Celulares e PCs fracos: só o essencial e baixa frequência.
   economico: {
     performance: {
@@ -98,18 +128,58 @@ enabled: enabledFor([
 
 const STORAGE_KEY = "animai.semantic.config";
 const MODE_KEY = "animai.semantic.mode";
+const AUTO_IMPORT_KEY = "animai.semantic.autoImport";
 
-/** Default adaptado ao dispositivo (low → econômico, mid → balanceado, …). */
+/** Analisar automaticamente a mídia ao importar (default: ligado). */
+export function isAutoAnalyzeEnabled(): boolean {
+  return localStorage.getItem(AUTO_IMPORT_KEY) !== "false";
+}
+
+export function setAutoAnalyzeEnabled(enabled: boolean): void {
+  localStorage.setItem(AUTO_IMPORT_KEY, String(enabled));
+}
+
+/**
+ * Detecta hardware muito limitado (4 GB RAM ou ≤2 núcleos) — nesses casos o
+ * modo crítico evita OOM/swap. navigator.deviceMemory/hardwareConcurrency são
+ * suportados em Chromium (Desktop Web/WebView e Android WebView).
+ */
+export function isCriticalHardware(): boolean {
+  const mem = (navigator as { deviceMemory?: number }).deviceMemory;
+  const cores = navigator.hardwareConcurrency;
+  if (typeof mem === "number" && mem <= 4) return true;
+  if (typeof cores === "number" && cores <= 2) return true;
+  return false;
+}
+
+/**
+ * Máx. de modelos de visão que podem inicializar em paralelo (Opt 3). Carregar
+ * 4 modelos de uma vez estoura a RAM (OOM/swap) em máquinas fracas; capar a
+ * concorrência troca um pouco de tempo de init por estabilidade. Derivado do
+ * modo salvo; em "manual", cai pelo hardware.
+ */
+export function getMaxConcurrentModels(): number {
+  const mode = getSavedMode();
+  if (mode === "manual") return isCriticalHardware() ? 1 : 2;
+  return MAX_CONCURRENT_MODELS[mode];
+}
+
+/** Default adaptado ao dispositivo (crítico → mínimo; low → econômico; …). */
 export function defaultModeForTier(
   tier: "low" | "mid" | "high" | null,
 ): Exclude<AnalyzerMode, "manual"> {
+  // Hardware muito fraco vence o tier: modo crítico para não travar.
+  if (isCriticalHardware()) return "critico";
   if (tier === "high") return "avancado";
   if (tier === "low") return "economico";
   return "balanceado";
 }
 
 export function getSavedMode(): AnalyzerMode {
-  return (localStorage.getItem(MODE_KEY) as AnalyzerMode) ?? "balanceado";
+  // Sem escolha salva, adota o default pelo hardware (crítico se for o caso).
+  const saved = localStorage.getItem(MODE_KEY) as AnalyzerMode | null;
+  if (saved) return saved;
+  return isCriticalHardware() ? "critico" : "balanceado";
 }
 
 export function getAnalyzerConfig(): AnalyzerConfig {

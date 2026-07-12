@@ -3,7 +3,7 @@ import {
   Search, Image as ImageIcon, Film, Music, Plus, Upload, Trash2,
   Square, Circle, Triangle, Star, ArrowRight, Hexagon, FileCode, AlertTriangle,
   RefreshCw, Palette, LayoutGrid, Grid2x2, List, Sparkles, Video,
-  Type, Shapes, Wand2, LayoutTemplate, Zap, Shuffle,
+  Type, Shapes, Wand2, LayoutTemplate, Zap, Shuffle, Braces,
 } from "lucide-react";
 import {
   BACKGROUND_PRESETS,
@@ -21,6 +21,7 @@ import {
 import { useTimelineStore } from "../../stores/timeline-store";
 import { Package, PenTool } from "lucide-react";
 import { VectorDrawDialog } from "./dialogs/VectorDrawDialog";
+import { SemanticJsonDialog } from "./SemanticJsonDialog";
 
 /** Movimentos de câmera 2D (prompt.txt item 3c). */
 const CameraSection: React.FC = () => {
@@ -325,6 +326,7 @@ const MediaThumbnail: React.FC<{
   onAddToTimeline: () => void;
   onKieAI?: () => void;
   onRetryKieAI?: () => void;
+  onViewJson: () => void;
 }> = ({
   item,
   isSelected,
@@ -336,6 +338,7 @@ const MediaThumbnail: React.FC<{
   onAddToTimeline,
   onKieAI,
   onRetryKieAI,
+  onViewJson,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -432,6 +435,13 @@ const MediaThumbnail: React.FC<{
             className="p-2 bg-primary/20 rounded-full hover:bg-primary/40 backdrop-blur-sm transition-colors"
           >
             <Plus size={14} className="text-primary" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onViewJson(); }}
+            title="Ver análise semântica (JSON)"
+            className="p-2 bg-accent/20 rounded-full hover:bg-accent/40 backdrop-blur-sm transition-colors"
+          >
+            <Braces size={14} className="text-accent" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -786,6 +796,7 @@ export const AssetsPanel: React.FC = () => {
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
   const [showAspectRatioDialog, setShowAspectRatioDialog] = useState(false);
   const [vectorDrawOpen, setVectorDrawOpen] = useState(false);
+  const [jsonMediaId, setJsonMediaId] = useState<string | null>(null);
   const [aspectRatioDialogData, setAspectRatioDialogData] = useState<{
     videoWidth: number;
     videoHeight: number;
@@ -865,46 +876,6 @@ export const AssetsPanel: React.FC = () => {
     },
     [importEntries],
   );
-
-  // Import preferencial: File System Access API — guarda só o handle do
-  // arquivo (path no disco do usuário), sem copiar o arquivo inteiro.
-  const supportsFilePicker =
-    typeof (window as unknown as { showOpenFilePicker?: unknown })
-      .showOpenFilePicker === "function";
-
-  const handlePickFiles = useCallback(async () => {
-    try {
-      const handles = await (
-        window as unknown as {
-          showOpenFilePicker: (opts: {
-            multiple: boolean;
-            types: Array<{ description: string; accept: Record<string, string[]> }>;
-          }) => Promise<FileSystemFileHandle[]>;
-        }
-      ).showOpenFilePicker({
-        multiple: true,
-        types: [
-          {
-            description: "Mídia",
-            accept: {
-              "video/*": [".mp4", ".mov", ".webm", ".mkv", ".avi"],
-              "audio/*": [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"],
-              "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"],
-            },
-          },
-        ],
-      });
-      const entries = await Promise.all(
-        handles.map(async (handle) => ({
-          file: await handle.getFile(),
-          handle,
-        })),
-      );
-      await importEntries(entries);
-    } catch {
-      // Usuário cancelou o seletor — ignora.
-    }
-  }, [importEntries]);
 
   // Handle drag and drop import — captura o FileSystemFileHandle e o passa ao
   // importMedia (evita duplicar o blob) quando o navegador suporta.
@@ -1135,13 +1106,10 @@ export const AssetsPanel: React.FC = () => {
   );
 
   const triggerFileInput = useCallback(() => {
-    // Prefere a File System Access API (guarda só o handle, não o blob).
-    if (supportsFilePicker) {
-      void handlePickFiles();
-    } else {
-      fileInputRef.current?.click();
-    }
-  }, [supportsFilePicker, handlePickFiles]);
+    // Seletor de arquivo padrão (confiável). O blob é salvo no import e o
+    // handle é capturado no drag-and-drop como bônus para relink.
+    fileInputRef.current?.click();
+  }, []);
 
   const handleImportBackground = useCallback(
     async (preset: BackgroundPreset) => {
@@ -1291,6 +1259,7 @@ export const AssetsPanel: React.FC = () => {
                         onAddToTimeline={() => handleAddToTimeline(item)}
                         onKieAI={item.type === "image" && !item.isPending && !item.kieaiError ? () => handleOpenKieAI(item) : undefined}
                         onRetryKieAI={item.kieaiError && item.kieaiTaskId ? () => handleRetryKieAI(item) : undefined}
+                        onViewJson={() => setJsonMediaId(item.id)}
                       />
                     ))}
                     {mediaViewMode === "list" ? (
@@ -1905,6 +1874,13 @@ export const AssetsPanel: React.FC = () => {
         isOpen={vectorDrawOpen}
         onClose={() => setVectorDrawOpen(false)}
       />
+
+      {jsonMediaId && (
+        <SemanticJsonDialog
+          mediaId={jsonMediaId}
+          onClose={() => setJsonMediaId(null)}
+        />
+      )}
     </div>
   );
 };

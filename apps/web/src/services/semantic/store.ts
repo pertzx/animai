@@ -5,18 +5,24 @@
  */
 
 import { create } from "zustand";
-import type { SemanticTimeline } from "./types";
+import type { PluginCache, SemanticTimeline } from "./types";
 
 const DB_NAME = "animai-semantic";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = "timelines";
+const PLUGIN_STORE = "pluginCache";
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE)) {
-        req.result.createObjectStore(STORE, { keyPath: "mediaId" });
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: "mediaId" });
+      }
+      // Opt 9: cache granular por plugin, separado da timeline montada.
+      if (!db.objectStoreNames.contains(PLUGIN_STORE)) {
+        db.createObjectStore(PLUGIN_STORE, { keyPath: "mediaId" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -53,6 +59,42 @@ export async function loadTimeline(
         resolve(
           (req.result as { timeline: SemanticTimeline } | undefined)?.timeline ??
             null,
+        );
+      req.onerror = () => reject(req.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+export async function savePluginCache(
+  mediaId: string,
+  cache: PluginCache,
+): Promise<void> {
+  const db = await openDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PLUGIN_STORE, "readwrite");
+      tx.objectStore(PLUGIN_STORE).put({ mediaId, cache });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+export async function loadPluginCache(
+  mediaId: string,
+): Promise<PluginCache | null> {
+  const db = await openDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(PLUGIN_STORE, "readonly");
+      const req = tx.objectStore(PLUGIN_STORE).get(mediaId);
+      req.onsuccess = () =>
+        resolve(
+          (req.result as { cache: PluginCache } | undefined)?.cache ?? null,
         );
       req.onerror = () => reject(req.error);
     });

@@ -1785,32 +1785,24 @@ export const useProjectStore = create<ProjectState>()(
 
           set({ project: updatedProject });
 
+          // Guarda o blob no IndexedDB: garante que a mídia reabra sem relink
+          // (o navegador NÃO persiste a permissão do arquivo entre sessões, por
+          // isso guardar só o handle exigiria relink toda vez).
+          try {
+            await saveMediaBlob(
+              updatedProject.id,
+              newMediaItem.id,
+              file,
+              newMediaItem.metadata,
+            );
+          } catch (err) {
+            console.error("[ProjectStore] Failed to persist media blob:", err);
+          }
+          // O handle fica como bônus (relink entre máquinas / mover pasta).
           if (fileHandle) {
-            // Modo econômico de memória: persiste só o handle (o arquivo fica no
-            // disco do usuário) — não duplica o blob inteiro no IndexedDB.
-            try {
-              await saveFileHandle(file.name, file.size, fileHandle);
-            } catch (err) {
-              console.error("[ProjectStore] Failed to persist file handle:", err);
-              // Se o handle não persistir, cai para o blob como garantia.
-              await saveMediaBlob(
-                updatedProject.id,
-                newMediaItem.id,
-                file,
-                newMediaItem.metadata,
-              ).catch(() => undefined);
-            }
-          } else {
-            try {
-              await saveMediaBlob(
-                updatedProject.id,
-                newMediaItem.id,
-                file,
-                newMediaItem.metadata,
-              );
-            } catch (err) {
-              console.error("[ProjectStore] Failed to persist media blob:", err);
-            }
+            await saveFileHandle(file.name, file.size, fileHandle).catch(
+              () => undefined,
+            );
           }
 
           if (mediaType === "video" && !thumbnailUrl) {
@@ -2014,6 +2006,15 @@ export const useProjectStore = create<ProjectState>()(
               modifiedAt: Date.now(),
             },
           });
+
+          // Persiste o blob no IndexedDB para NÃO precisar relincar de novo na
+          // próxima vez que abrir o projeto (o navegador não guarda a permissão
+          // do arquivo entre sessões).
+          try {
+            await saveMediaBlob(project.id, mediaId, file, updatedItem.metadata);
+          } catch (err) {
+            console.error("[ProjectStore] Failed to persist relinked blob:", err);
+          }
 
           if (updatedItem.type === "video" && !updatedItem.thumbnailUrl) {
             setTimeout(async () => {
@@ -4149,7 +4150,12 @@ export const useProjectStore = create<ProjectState>()(
 
           const restoredItems = await Promise.all(
             recoveredProject.mediaLibrary.items.map((item) =>
-              restoreMediaItem(item, blobMap.get(item.id)),
+              // Um item problemático não pode travar a recuperação inteira.
+              restoreMediaItem(item, blobMap.get(item.id)).catch(() => ({
+                ...item,
+                blob: null,
+                isPlaceholder: Boolean(item.sourceFile),
+              })),
             ),
           );
 

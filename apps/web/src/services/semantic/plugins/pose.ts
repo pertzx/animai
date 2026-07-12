@@ -88,7 +88,7 @@ export class PoseAnalyzer implements SemanticAnalyzerPlugin {
 
   async analyzeFrame(frame: AnalyzerFrame): Promise<SemanticEvent[]> {
     if (!this.landmarker) return [];
-    const result: PoseLandmarkerResult = this.landmarker.detect(frame.bitmap);
+    const result: PoseLandmarkerResult = this.landmarker.detect(frame.image);
     const events: SemanticEvent[] = [];
 
     result.landmarks.forEach((landmarks, i) => {

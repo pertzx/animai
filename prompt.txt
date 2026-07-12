@@ -1,684 +1,152 @@
-O resultado disso> "aparentemente so detecta a fala e os textos que aparece na tela, e mesmo assim nem é tao bom porque nao detecta todo texto que aparece na tela" e a mesma logica de analise de frame deve servir pra imagens, implemente tambem o esp pro que ta sendo detectado em cada frame no lab do admin pra ver se funciona perfeitamente.:
 
-----------
+# PROMPT OTIMIZADO — AUDITORIA TÉCNICA COMPLETA DO SEMANTIC ANALYZER
+## Repositório: https://github.com/pertzx/animai
 
-# Video & Audio Semantic Analyzer V2
- 
-## Contexto
- 
-Estou desenvolvendo um editor de vídeo web semelhante à combinação de **CapCut Pro + Canva + Alight Motion**, porém com um **Agente de IA capaz de editar projetos automaticamente através de Tools**.
- 
-Toda a edição ocorre preferencialmente localmente no navegador.
- 
-O servidor é utilizado principalmente para recursos de IA.
- 
-Não desejo depender de APIs pagas para análise de vídeo ou áudio.
- 
-A arquitetura deve priorizar:
- 
- 
-- Modelos Open Source.
- 
-- WebGPU.
- 
-- WebAssembly.
- 
-- Processamento local.
- 
-- Execução otimizada para diferentes dispositivos.
- 
+---
 
-  
-# Estado atual do projeto
- 
-Atualmente o sistema já possui:
- 
- 
-- Editor de vídeo funcional.
- 
-- Timeline.
- 
-- Sistema de camadas.
- 
-- Objetos editáveis.
- 
-- Ferramentas da IA para editar o projeto.
- 
-- Agente de IA integrado.
- 
-- IA consegue modificar partes do projeto.
- 
-- IA consegue gerar legendas.
- 
-- IA consegue descrever conteúdo de áudio.
- 
-- IA consegue analisar áudio presente em vídeos.
- 
-- STT (Speech to Text).
- 
-- Contexto parcial do conteúdo do vídeo.
- 
+## CONTEXTO DO PROJETO
 
- 
-O principal problema atual é que o sistema ainda não possui um analisador semântico completo de vídeos.
-  
-# Objetivo
- 
-Criar um novo módulo chamado:
- 
-`Semantic Media Analyzer`
- 
-Esse módulo será responsável por analisar vídeos e áudios localmente e gerar uma:
- 
-**Timeline Semântica completa do conteúdo.**
- 
-A IA não deve receber o vídeo diretamente.
- 
-Ela deve consumir apenas os eventos gerados pelo analisador.
-  
-# Arquitetura baseada em plugins
- 
-Criar uma arquitetura modular.
- 
-Cada analisador deve ser independente.
- 
-Estrutura:
- `Semantic Analyzer  ├── Speech Analyzer ├── OCR Analyzer ├── Scene Analyzer ├── Object Detector ├── Object Tracker ├── Face Analyzer ├── Pose Analyzer ├── Gesture Analyzer ├── Emotion Analyzer ├── Audio Event Analyzer ├── Music Analyzer ├── Environment Analyzer └── Timeline Builder ` 
-Cada plugin pode ser ativado ou desativado individualmente.
-  
-# Interface dos Plugins
- 
-Todos os plugins devem seguir uma interface comum:
- `interface SemanticAnalyzerPlugin {   analyze(input): Promise<SemanticEvent[]>  } ` 
-Evento:
- `interface SemanticEvent {   start:number;   end:number;   type:string;   confidence:number;   metadata:Record<string, any>;  } ` 
-Todos os eventos obrigatoriamente devem possuir timestamps.
-  
-# Painel administrativo de testes
- 
-Criar uma área exclusiva no painel Admin chamada:
- 
-`Semantic Analyzer Lab`
- 
-Essa área será usada para testar e configurar toda a integração.
- 
-## Funções do painel:
- 
-Permitir upload de um vídeo de teste.
- 
-Após enviar o vídeo:
- 
- 
-- Executar análise em tempo real.
- 
-- Mostrar preview do vídeo.
- 
-- Mostrar todos os detectores funcionando.
- 
-- Mostrar bounding boxes.
- 
-- Mostrar pontos faciais.
- 
-- Mostrar pose corporal.
- 
-- Mostrar objetos detectados.
- 
-- Mostrar textos encontrados.
- 
-- Mostrar falas detectadas.
- 
-- Mostrar eventos na timeline.
- 
+O AnimAI é um editor de vídeo com IA que roda 100% localmente no dispositivo do usuário. 
+O servidor serve APENAS para autenticação, dados do usuário e chamadas de IA quando necessário. 
+Toda a análise semântica de vídeo, imagem e áudio é processada localmente via navegador.
 
-  
-# Preview em tempo real
- 
-Criar uma interface visual semelhante a ferramentas profissionais de visão computacional.
- 
-Exibir:
- 
- 
-- Vídeo original.
- 
-- Bounding boxes dos objetos.
- 
-- Nome do objeto.
- 
-- Confiança.
- 
-- ID do tracking.
- 
-- Landmarks do rosto.
- 
-- Skeleton da pose.
- 
-- Textos detectados.
- 
-- Eventos acontecendo naquele momento.
- 
+### Hardware alvo primário (meu PC de desenvolvimento)
+- Notebook Samsung, 4 GB RAM, CPU dual-core, sem GPU dedicada, HDD lento
+- Vídeo de 14 segundos demora 60–90 segundos para analisar
+- O sistema trava frequentemente por OOM (Out of Memory) e swap no disco
 
- 
-Exemplo:
- `00:05.20  Pessoa #1 Confidence: 98%  Carro #2 Confidence: 95%  Texto detectado: "Promoção"  Expressão: Sorrindo  Pose: Em pé `  
-# Configurações gerais do analisador
- 
-O Admin deve conseguir configurar:
- 
-## Performance
- 
- 
-- FPS de análise.
- 
-- Quantidade de frames analisados por segundo.
- 
-- Resolução de análise.
- 
-- Uso máximo de memória.
- 
-- Uso de GPU.
- 
-- Uso de CPU.
- 
-- Habilitar/desabilitar WebGPU.
- 
-- Habilitar/desabilitar WebAssembly.
- 
+### Escopo de plataforma (meta de distribuição)
+1. **Desktop Web**
+2. **Desktop App WebView**
+3. **Android WebView**
 
- 
-## Precisão
- 
- 
-- Threshold mínimo de confiança.
- 
-- Modelo utilizado.
- 
-- Quantidade de objetos detectados.
- 
-- Frequência de atualização.
- 
+**FORA DO ESCOPO:** iOS, Safari, WKWebView, Firefox mobile. Não precisa otimizar para esses.
 
- 
-## Recursos
- 
-Ativar/desativar:
- 
- 
-- Speech Analyzer.
- 
-- OCR.
- 
-- Object Detection.
- 
-- Object Tracking.
- 
-- Face Detection.
- 
-- Expression Detection.
- 
-- Pose Detection.
- 
-- Hand Detection.
- 
-- Audio Detection.
- 
-- Environment Detection.
- 
+---
 
-  
-# Configuração para usuários finais
- 
-Nem todos os usuários terão dispositivos potentes.
- 
-Criar uma configuração de análise no editor:
- 
-## Modo Econômico
- 
-Para celulares e computadores fracos.
- 
-Ativar:
- 
- 
-- STT.
- 
-- OCR básico.
- 
-- Poucos objetos.
- 
-- Baixa frequência de análise.
- 
+## OBJETIVOS DA AUDITORIA
 
-  
-## Modo Balanceado
- 
-Ativar:
- 
- 
-- STT.
- 
-- OCR.
- 
-- Objetos.
- 
-- Pessoas.
- 
-- Tracking.
- 
-- Cena.
- 
+Analisar o Semantic Analyzer completo e propor otimizações que:
+- **Preservem a arquitetura atual** (plugins, orquestrador, store, config, tipos)
+- **Mantenham a qualidade do JSON final** (mesmos eventos, mesmos timestamps, mesma precisão)
+- **Reduzam drasticamente o tempo** de análise (meta: 70%+ no hardware alvo)
+- **Eliminem travamentos** por OOM/swap no hardware de 4 GB RAM
+- **Funcionem nos 3 alvos de plataforma** sem reescrever do zero
 
-  
-## Modo Avançado
- 
-Para computadores fortes.
- 
-Ativar:
- 
- 
-- Todos os detectores.
- 
-- Face.
- 
-- Emoções.
- 
-- Pose.
- 
-- Gestos.
- 
-- Ambiente.
- 
-- Eventos de áudio.
- 
+---
 
-  
-Também permitir configuração manual:
- 
-Exemplo:
- 
-☑ Detectar pessoas
- 
-☑ Detectar veículos
- 
-☑ Detectar animais
- 
-☑ Detectar expressões
- 
-☑ Detectar poses
- 
-☐ Detectar ambiente
- 
-O usuário escolhe o que deseja processar.
-  
-# Integrar Speech Analyzer
- 
-Usar Whisper.cpp ou equivalente Open Source.
- 
-Gerar:
- 
- 
-- Texto.
- 
-- Timestamp por palavra.
- 
-- Início da fala.
- 
-- Fim da fala.
- 
-- Pausas.
- 
-- Silêncio.
- 
+## PONTOS DE ATENÇÃO ESPECÍFICOS (identificados em análise prévia)
 
-  
-# Integrar OCR
- 
-Usar OCR local.
- 
-Detectar:
- 
- 
-- Texto na tela.
- 
-- Entrada do texto.
- 
-- Saída do texto.
- 
-- Mudança do texto.
- 
+### A. GARGALOS DE PERFORMANCE JÁ MAPEADOS
 
- 
-Salvar timestamps.
-  
-# Integrar Scene Detection
- 
-Detectar:
- 
- 
-- Cortes.
- 
-- Fade.
- 
-- Transições.
- 
-- Mudanças bruscas.
- 
-- Alteração de câmera.
- 
+1. **Seek aleatório no `<video>` element** (`frame-source.ts`)
+   - `video.currentTime = t` a cada frame força redecodificação de GOPs inteiros
+   - Em CPU fraca + HDD, cada seek leva 200–500ms
+   - 14 frames × seek = 2.8–7 segundos só em seek
 
- 
-Salvar timestamps.
-  
-# Integrar Object Detection
- 
-Usar modelos Open Source como YOLO.
- 
-Detectar:
- 
- 
-- Pessoa.
- 
-- Carro.
- 
-- Moto.
- 
-- Ônibus.
- 
-- Caminhão.
- 
-- Bicicleta.
- 
-- Cachorro.
- 
-- Gato.
- 
-- Pássaro.
- 
-- Cavalo.
- 
-- Celular.
- 
-- Notebook.
- 
-- Cadeira.
- 
-- Mesa.
- 
-- Televisão.
- 
-- Garrafa.
- 
-- Copo.
- 
-- Bola.
- 
-- Mochila.
- 
+2. **Cessão de thread a cada frame** (`orchestrator.ts`)
+   - `await yieldToUi()` (setTimeout(..., 0)) a cada frame
+   - Overhead de 15–30ms por yield em CPU fraca
+   - Quebra pipelining de CPU/GPU
 
- 
-Todos os objetos devem possuir:
- 
- 
-- Timestamp.
- 
-- Bounding box.
- 
-- Confiança.
- 
-- ID.
- 
+3. **Todos os modelos carregados simultaneamente** (`orchestrator.ts`)
+   - `Promise.all(plugins.map(p => p.init()))` carrega 4+ modelos MediaPipe de uma vez
+   - 4 modelos × ~300 MB = 1.2 GB+ residentes em RAM
+   - Em 4 GB, isso força swap e OOM
 
-  
-# Integrar Object Tracking
- 
-Usar:
- 
- 
-- ByteTrack.
- 
-- DeepSORT.
- 
-- Ou equivalente.
- 
+4. **Decode de áudio bloqueante** (`run.ts`)
+   - `await decodeBlobAudio(blob)` executa ANTES de iniciar a análise de vídeo
+   - Áudio e vídeo não se sobrepõem
 
- 
-Objetivo:
- 
-Manter identidade dos objetos.
- 
-Exemplo:
- `Pessoa #1  Pessoa #2  Carro #3 ` 
-durante todo o vídeo.
-  
-# Integrar Face Analyzer
- 
-Usar MediaPipe Face Mesh.
- 
-Detectar:
- 
- 
-- Rosto.
- 
-- Landmarks.
- 
-- Posição.
- 
-- Direção da cabeça.
- 
-- Rotação.
- 
+5. **Amostragem uniforme sem filtro de redundância** (`frame-source.ts`)
+   - Frames em intervalos fixos, sem scene detection ou detecção de frames idênticos
+   - Em entrevistas/podcasts, 60–80% dos frames são visualmente idênticos
 
-  
-# Integrar Expression Analyzer
- 
-Criar detector semelhante aos filtros:
- 
- 
-- TikTok.
- 
-- Instagram.
- 
-- Snapchat.
- 
+6. **OCR em todos os frames amostrados** (`plugins/ocr.ts`)
+   - Tesseract.js: 1–3s por frame em CPU fraca
+   - Texto em vídeo persiste por segundos — não precisa de OCR a cada frame
 
- 
-Detectar:
- 
- 
-- Sorriso.
- 
-- Surpresa.
- 
-- Raiva.
- 
-- Tristeza.
- 
-- Medo.
- 
-- Neutro.
- 
+7. **`createImageBitmap` por frame** (`frame-source.ts`)
+   - Aloca textura GPU/VRAM a cada frame
+   - 14 frames × ~400 KB = 5.6 MB de alocação/liberação por vídeo
+   - Força GC constante em 4 GB RAM
 
- 
-Também detectar:
- 
- 
-- Boca aberta.
- 
-- Olhos fechados.
- 
-- Piscada.
- 
-- Olhando para câmera.
- 
-- Direção do olhar.
- 
-- Cabeça inclinada.
- 
-- Cabeça girada.
- 
+8. **Finalização síncrona e sequencial** (`orchestrator.ts`)
+   - `for (const p of plugins) p.finalize(raw, context)` roda na main thread
+   - Tracking pode ser O(N²) em CPU fraca
 
- 
-Tudo com timestamp.
-  
-# Integrar Pose Detection
- 
-Usar MediaPipe Pose.
- 
-Detectar:
- 
- 
-- Sentado.
- 
-- Em pé.
- 
-- Andando.
- 
-- Correndo.
- 
-- Pulando.
- 
-- Levantando braço.
- 
-- Apontando.
- 
-- Acenando.
- 
-- Abaixando.
- 
-- Ajoelhado.
- 
+9. **Cache apenas do JSON final** (`store.ts`)
+   - Se usuário muda 1 plugin, todo o vídeo é reprocessado
+   - Não há cache granular por plugin
 
-  
-# Integrar Hand Detection
- 
-Detectar:
- 
- 
-- Mãos.
- 
-- Dedos.
- 
-- Gestos.
- 
+10. **Ausência de detecção de hardware** (`config.ts`)
+    - Modo "low" ainda pode ser agressivo demais para 4 GB RAM
+    - Não há modo "critical" ou "mobile"
 
-  
-# Integrar Audio Event Detection
- 
-Detectar:
- 
- 
-- Música.
- 
-- Aplausos.
- 
-- Explosões.
- 
-- Buzina.
- 
-- Risadas.
- 
-- Choro.
- 
-- Passos.
- 
-- Silêncio.
- 
+### B. PROBLEMAS DE ARQUITETURA EXTRAS (não relacionados ao Semantic Analyzer diretamente, mas que afetam performance geral)
 
-  
-# Integrar Environment Detection
- 
-Detectar:
- 
- 
-- Praia.
- 
-- Cidade.
- 
-- Estrada.
- 
-- Floresta.
- 
-- Escritório.
- 
-- Academia.
- 
-- Cozinha.
- 
-- Quarto.
- 
-- Sala.
- 
+11. **Blob inteiro do vídeo guardado em memória** (`project-store.ts` / `media-storage.ts`)
+    - O sistema guarda o `Blob` completo do vídeo na memória do navegador
+    - Um vídeo de 100 MB fica residente em RAM o tempo todo
+    - Deveria usar FileSystemAccess API para guardar path/reference, não o blob
+    - Isso compete diretamente com a RAM usada pelo Semantic Analyzer
 
-  
-# Timeline Semântica
- 
-Após todos os plugins terminarem:
- 
-Criar uma timeline de eventos.
- 
-Exemplo:
- `00:00 Pessoa aparece  00:02 Pessoa começa a falar  00:05 Texto "Promoção" aparece  00:08 Pessoa sorri  00:10 Carro passa  00:14 Pessoa aponta  00:17 Texto desaparece  00:20 Silêncio  00:24 Mudança de cena `  
-# JSON Final
- 
-Gerar:
- `{  "events":[   {    "start":10.2,    "end":13.8,    "type":"person_running",    "confidence":0.98,    "metadata":{     "trackId":4    }   }  ] } `  
-# Objetivo final
- 
-O agente de IA deve usar essa Timeline Semântica para:
- 
- 
-- Cortar silêncios.
- 
-- Dar zoom quando a pessoa sorrir.
- 
-- Encontrar momentos com animais.
- 
-- Encontrar veículos.
- 
-- Criar Shorts.
- 
-- Criar anúncios.
- 
-- Criar cortes automáticos.
- 
-- Encontrar melhores momentos.
- 
-- Editar baseado em intenção.
- 
+### C. FEATURES FUTURAS QUE PRECISAM SER CONSIDERADAS NA ARQUITETURA
 
- 
-A IA nunca deve analisar diretamente o vídeo.
- 
-Ela deve trabalhar exclusivamente com os eventos gerados pelo Semantic Media Analyzer.
-  
-# Requisitos técnicos
- 
- 
-- Priorizar Open Source.
- 
-- Sem APIs pagas para análise.
- 
-- Execução local.
- 
-- Arquitetura modular.
- 
-- Plugins independentes.
- 
-- Alto desempenho.
- 
-- Compatível com WebGPU/WebAssembly.
- 
-- Adaptável ao hardware do usuário.
- 
-- Possibilidade de ativar/desativar recursos.
- 
-- Timestamps precisos.
- 
-- Preparado para análise em tempo real.
+12. **Sistema de câmera 3D real** (como Alight Motion)
+    - Câmera virtual com profundidade, parallax, perspectiva
+    - Elementos em camadas com Z-depth
+    - Não é simples zoom/pan — é transformação 3D real de câmera
+    - Deve ser considerado no canvas de preview e no sistema de keyframes
 
------
+13. **Keyframes universais** — qualquer propriedade de qualquer elemento
+    - Hoje keyframes parecem limitados a propriedades específicas
+    - Meta: qualquer propriedade numérica, booleana ou de transformação de qualquer elemento (vídeo, texto, shape, imagem, efeito) deve ser animável via keyframes
+    - Isso inclui: posição X/Y/Z, escala, rotação, opacidade, cor, blur, brilho, propriedades de câmera (FOV, depth of field), etc.
 
+---
 
-1. O desempenho, travamento etc, ta horroroso, eu acho que um dos principais fatores é guardar o blob no site ao invez de pedir acesso do armazenamento e guardar o path do arquivo que a pessoa importou, dai nao iria prescisar guardar o blob inteiro do arquivo.
+## ENTREGÁVEIS ESPERADOS
 
-2. quando eu falei que queria pra voce implementar um sistema de camera eu falei real, como se fosse uma camera, pra dar aspecto de profundidade pros elementos, dar um aspecto de 3d que nem o aligth motion.
+Para cada item de 1 a 13 acima, forneça:
 
-3. deve ser possivel fazer keyframe pra qualquer elemento e qualquer propiedade desse elemento tambem.
+1. **Arquivo exato** e **função aproximada**
+2. **Linha aproximada** no código (se possível inferir do repositório)
+3. **Motivo do gargalo** com explicação técnica
+4. **Otimização sugerida** com código concreto (TypeScript)
+5. **Estimativa de ganho** de performance
+6. **Impacto no JSON final** (altera / não altera / altera minimamente)
+7. **Impacto em cada plataforma alvo** (Desktop Web / Desktop App / Android WebView)
+
+No final, monte:
+
+- **Plano de otimização priorizado** (Quick Wins → Médio impacto → Alto impacto)
+- **Tempo estimado de implementação** por item
+- **Ganho cumulativo projetado** para vídeo de 14s no hardware de 4 GB RAM
+- **Ganho cumulativo projetado** para vídeo de 1 minuto no hardware de 4 GB RAM
+- **Recomendação de quais itens são OBRIGATÓRIOS para Android WebView** vs recomendados vs opcionais
+- **Nota sobre as features futuras** (câmera 3D + keyframes universais): como a arquitetura atual deve ser preparada para receber essas features sem retrabalho
+
+---
+
+## RESTRIÇÕES
+
+- NÃO quebrar a API pública dos plugins (init / analyzeFrame / analyzeSequence / finalize / dispose)
+- NÃO alterar o formato do JSON final (`SemanticTimeline`) — salvo exceções justificadas
+- NÃO remover suporte a nenhum plugin existente — apenas otimizar como/when rodam
+- Manter compatibilidade com AbortSignal para cancelamento
+- Manter compatibilidade com callbacks de progresso (onProgress, onFrame, onEvents, onDetectorStatus)
+- Preservar a capacidade de "modo econômico / balanceado / avançado / manual"
+
+---
+
+## INFORMAÇÃO ADICIONAL
+
+- O projeto usa Bun como package manager
+- Monorepo com apps/web, apps/server, apps/image
+- O Semantic Analyzer está em `apps/web/src/services/semantic/`
+- MediaPipe Tasks Vision é usado para visão (face, pose, hands, object, scene)
+- Tesseract.js é usado para OCR
+- Whisper (via worker) é usado para STT/speech
+- Web Audio API é usada para análise de áudio/música
+- IndexedDB (via Zustand + idb) é usada para cache de timelines

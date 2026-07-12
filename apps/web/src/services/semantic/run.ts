@@ -8,9 +8,14 @@ import { useProjectStore } from "../../stores/project-store";
 import { loadMediaBlob } from "../media-storage";
 import { analyzeMedia } from "./orchestrator";
 import { decodeBlobAudio } from "./audio-decode";
-import { getAnalyzerConfig } from "./config";
-import { useSemanticStore, loadTimeline } from "./store";
-import type { SemanticTimeline } from "./types";
+import { getAnalyzerConfig, getMaxConcurrentModels } from "./config";
+import {
+  useSemanticStore,
+  loadTimeline,
+  loadPluginCache,
+  savePluginCache,
+} from "./store";
+import type { PluginCache, SemanticTimeline } from "./types";
 
 async function getMediaBlob(mediaId: string): Promise<Blob | null> {
   const item = useProjectStore
@@ -70,18 +75,32 @@ export async function ensureSemanticTimeline(
 
   const controller = new AbortController();
   const signal = options.signal ?? controller.signal;
-  const audioPcm = await decodeBlobAudio(blob);
+  // Opt 4: NÃO espera o decode de áudio aqui — passa a promessa. O orquestrador
+  // carrega os modelos (init) enquanto o áudio decodifica em paralelo, em vez
+  // de bloquear a thread esperando o PCM antes de começar qualquer coisa.
+  const audioPcm = decodeBlobAudio(blob).catch(() => null);
+
+  // Opt 9: carrega o cache por plugin da última análise — detectores cuja
+  // config não mudou são reaproveitados em vez de rodar de novo.
+  const pluginCache = (await loadPluginCache(mediaId).catch(() => null)) ?? undefined;
+  let nextCache: PluginCache | null = null;
 
   const timeline = await analyzeMedia({
     blob,
     durationSec,
     config: getAnalyzerConfig(),
     audioPcm,
+    maxConcurrentInit: getMaxConcurrentModels(),
+    pluginCache,
+    onPluginCache: (cache) => {
+      nextCache = cache;
+    },
     signal,
     onProgress: (fraction, stage) => options.onProgress?.({ fraction, stage }),
   });
 
   useSemanticStore.getState().setTimeline(mediaId, timeline);
+  if (nextCache) void savePluginCache(mediaId, nextCache);
   return timeline;
 }
 

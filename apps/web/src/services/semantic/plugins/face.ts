@@ -85,7 +85,7 @@ export class FaceAnalyzer implements SemanticAnalyzerPlugin {
     context: AnalyzerContext,
   ): Promise<SemanticEvent[]> {
     if (!this.landmarker) return [];
-    const result: FaceLandmarkerResult = this.landmarker.detect(frame.bitmap);
+    const result: FaceLandmarkerResult = this.landmarker.detect(frame.image);
     const events: SemanticEvent[] = [];
     const expressionOn = context.config.enabled.expression;
 
