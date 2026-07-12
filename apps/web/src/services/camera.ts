@@ -1,10 +1,12 @@
 /**
- * Câmera 2D estilo Alight Motion (prompt.txt item 3c — MVP).
+ * Câmera 3D com profundidade, estilo Alight Motion (prompt.txt #2).
  *
- * Um movimento de câmera é uma lista de keyframes {time, x, y, zoom}. Em vez
- * de mexer no pipeline de render, o movimento é "assado" como keyframes de
- * position/scale nos clipes visíveis — o transform inverso da câmera — usando
- * o KeyframeEngine existente. Resultado idêntico no preview e no export.
+ * Cada elemento tem uma profundidade (cameDepth, em unidades). A câmera
+ * (x, y, zoom) afeta os elementos proporcionalmente à profundidade: elementos
+ * ao fundo (profundidade alta) se movem/escalam MENOS com a câmera; elementos
+ * à frente (profundidade negativa) se movem MAIS — gerando parallax real e o
+ * aspecto 3D. O movimento é "assado" como keyframes de position/scale, então
+ * funciona idêntico no preview e no export, sem tocar no pipeline de render.
  *
  * x/y em pixels do projeto (0,0 = centro); zoom 1 = enquadramento normal.
  */
@@ -24,7 +26,24 @@ export interface CameraKeyframe {
   zoom: number;
 }
 
+/** Distância focal virtual: controla a força do parallax. */
+const FOCAL = 1000;
+
 const keyframeEngine = new KeyframeEngine();
+
+/** Profundidade do clipe (0 = plano focal; >0 = fundo; <0 = frente). */
+export function getClipDepth(clip: Clip): number {
+  const d = clip.metadata?.cameraDepth;
+  return typeof d === "number" && Number.isFinite(d) ? d : 0;
+}
+
+/**
+ * Fator de parallax pela profundidade: 1 no plano focal, <1 no fundo (move
+ * menos), >1 na frente (move mais). É a essência do efeito 3D.
+ */
+export function parallaxFactor(depth: number): number {
+  return FOCAL / (FOCAL + depth);
+}
 
 /** Valor base de uma propriedade do clipe (sem câmera). */
 function baseValue(clip: Clip, property: string): number {
@@ -40,6 +59,32 @@ function baseValue(clip: Clip, property: string): number {
     default:
       return 0;
   }
+}
+
+/** Define a profundidade 3D de um clipe (usada pela câmera para o parallax). */
+export function setClipDepth(clipId: string, depth: number): boolean {
+  let found = false;
+  useProjectStore.setState((state) => ({
+    project: {
+      ...state.project,
+      modifiedAt: Date.now(),
+      timeline: {
+        ...state.project.timeline,
+        tracks: state.project.timeline.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id !== clipId) return clip;
+            found = true;
+            return {
+              ...clip,
+              metadata: { ...clip.metadata, cameraDepth: depth },
+            };
+          }),
+        })),
+      },
+    },
+  }));
+  return found;
 }
 
 /**
@@ -102,18 +147,23 @@ export async function applyCameraMove(
           ),
       );
 
+      // Profundidade do clipe → fator de parallax (o coração do efeito 3D).
+      const factor = parallaxFactor(getClipDepth(clip));
+
       for (const cam of sorted) {
         // Keyframes do clipe são relativos ao início do clipe.
         const localTime = cam.time - clip.startTime;
         if (localTime < 0 || localTime > clip.duration) continue;
 
-        // Transform inverso da câmera: conteúdo desloca contra o alvo e
-        // escala pelo zoom.
+        // Transform inverso da câmera COM profundidade:
+        //  - pan: deslocamento proporcional ao parallax (fundo move menos).
+        //  - zoom: dolly — elementos à frente crescem mais que os do fundo.
+        const zoomForDepth = 1 + (cam.zoom - 1) * factor;
         const values: Array<[string, number]> = [
-          ["position.x", (baseValue(clip, "position.x") - cam.x) * cam.zoom],
-          ["position.y", (baseValue(clip, "position.y") - cam.y) * cam.zoom],
-          ["scale.x", baseValue(clip, "scale.x") * cam.zoom],
-          ["scale.y", baseValue(clip, "scale.y") * cam.zoom],
+          ["position.x", baseValue(clip, "position.x") - cam.x * factor],
+          ["position.y", baseValue(clip, "position.y") - cam.y * factor],
+          ["scale.x", baseValue(clip, "scale.x") * zoomForDepth],
+          ["scale.y", baseValue(clip, "scale.y") * zoomForDepth],
         ];
         for (const [property, value] of values) {
           const created = keyframeEngine.addKeyframe(
@@ -175,6 +225,22 @@ export function cameraPresets(durationSec: number): Array<{
       keyframes: [
         { time: 0, x: 0, y: 0, zoom: 1 },
         { time: Math.min(0.4, d / 3), x: 0, y: -40, zoom: 1.45 },
+      ],
+    },
+    {
+      id: "parallax",
+      name: "Parallax 3D (defina profundidades)",
+      keyframes: [
+        { time: 0, x: -160, y: 0, zoom: 1.2 },
+        { time: d, x: 160, y: 0, zoom: 1.2 },
+      ],
+    },
+    {
+      id: "dolly-3d",
+      name: "Dolly 3D (aproxima com profundidade)",
+      keyframes: [
+        { time: 0, x: 0, y: 0, zoom: 1 },
+        { time: d, x: 0, y: 0, zoom: 1.6 },
       ],
     },
   ];

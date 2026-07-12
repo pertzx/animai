@@ -82,6 +82,12 @@ export async function restoreMediaItem(
   const blob = storedBlob || item.blob;
 
   if (!blob) {
+    // Sem blob armazenado. Se guardamos só o handle do arquivo (import via
+    // File System Access — prompt.txt #1), vira placeholder para o fluxo de
+    // restauração por FileSystemFileHandle (loadProject) recuperá-lo do disco.
+    if (item.sourceFile) {
+      return { ...item, blob: null, isPlaceholder: true };
+    }
     return item;
   }
 

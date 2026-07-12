@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { Settings, Key, User, Gauge } from "lucide-react";
+import { Settings, Key, User, Gauge, ScanEye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,12 @@ import { GeneralPanel } from "./GeneralPanel";
 import { ApiKeysPanel } from "./ApiKeysPanel";
 import { ProfilePanel } from "./ProfilePanel";
 import { PerformancePanel } from "./PerformancePanel";
+import { AnalysisPanel } from "./AnalysisPanel";
 
 const TABS: readonly { id: SettingsTab; label: string; icon: typeof Settings }[] = [
   { id: "profile", label: "Perfil", icon: User },
   { id: "general", label: "General", icon: Settings },
+  { id: "analysis", label: "Análise", icon: ScanEye },
   { id: "performance", label: "Performance", icon: Gauge },
   { id: "api-keys", label: "API Keys", icon: Key },
 ];
@@ -69,6 +71,7 @@ export const SettingsDialog: React.FC = () => {
         >
           {settingsTab === "profile" && <ProfilePanel />}
           {settingsTab === "general" && <GeneralPanel />}
+          {settingsTab === "analysis" && <AnalysisPanel />}
           {settingsTab === "performance" && <PerformancePanel />}
           {settingsTab === "api-keys" && <ApiKeysPanel />}
         </div>

@@ -49,7 +49,12 @@ export const SERVICE_REGISTRY: readonly ServiceConfig[] = [
 export type TtsProvider = "piper" | "elevenlabs";
 export type LlmProvider = "openai" | "anthropic";
 export type AggregatorProvider = "kie-ai" | "freepik";
-export type SettingsTab = "general" | "api-keys" | "profile" | "performance";
+export type SettingsTab =
+  | "general"
+  | "api-keys"
+  | "profile"
+  | "performance"
+  | "analysis";
 
 /** Modo de performance do editor (prompt.txt item 6). */
 export type PerformanceMode = "auto" | "desempenho" | "maximo";

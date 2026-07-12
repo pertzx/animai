@@ -29,6 +29,10 @@ export class OcrAnalyzer implements SemanticAnalyzerPlugin {
   readonly usesAudio = false;
 
   private worker: TesseractWorker | null = null;
+  // OCR é caro (upscale + reconhecimento); texto na tela persiste por segundos,
+  // então analisa no máximo a cada ~1,5s de vídeo em vez de todo frame.
+  private lastRun = -Infinity;
+  private readonly throttleSec = 1.5;
 
   async init(): Promise<void> {
     this.worker ??= await createWorker(["por", "eng"]);
@@ -36,16 +40,38 @@ export class OcrAnalyzer implements SemanticAnalyzerPlugin {
 
   async analyzeFrame(
     frame: AnalyzerFrame,
-    context: AnalyzerContext,
+    _context: AnalyzerContext,
   ): Promise<SemanticEvent[]> {
     if (!this.worker) return [];
+    if (frame.time - this.lastRun < this.throttleSec) return [];
+    this.lastRun = frame.time;
+    // Upscale para ~1024px no lado maior + escala de cinza e contraste: o
+    // frame de análise (ex.: 480px) é pequeno demais para o OCR ler texto.
+    const target = 1024;
+    const scale = Math.max(1, target / Math.max(frame.width, frame.height));
+    const w = Math.round(frame.width * scale);
+    const h = Math.round(frame.height * scale);
     const canvas = document.createElement("canvas");
-    canvas.width = frame.width;
-    canvas.height = frame.height;
-    canvas.getContext("2d")!.drawImage(frame.bitmap, 0, 0);
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(frame.bitmap, 0, 0, w, h);
+    // Pré-processa: cinza + aumento de contraste ajuda muito o Tesseract.
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const c = Math.max(0, Math.min(255, (g - 128) * 1.4 + 128));
+      d[i] = d[i + 1] = d[i + 2] = c;
+    }
+    ctx.putImageData(img, 0, 0);
+
     const { data } = await this.worker.recognize(canvas);
+    // Confiança do OCR é mais baixa que a de detecção; usa limiar próprio.
     const conf = (data.confidence ?? 0) / 100;
-    if (conf < context.config.precision.minConfidence) return [];
+    if (conf < 0.3) return [];
     const text = cleanText(data.text ?? "");
     if (!text) return [];
     // Evento pontual por frame; finalize agrupa em intervalos.
@@ -94,5 +120,6 @@ export class OcrAnalyzer implements SemanticAnalyzerPlugin {
   dispose(): void {
     void this.worker?.terminate();
     this.worker = null;
+    this.lastRun = -Infinity;
   }
 }

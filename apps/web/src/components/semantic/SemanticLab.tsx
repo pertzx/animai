@@ -6,7 +6,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Play, Square, Upload } from "lucide-react";
+import { Check, Loader2, Play, Square, Upload, X } from "lucide-react";
 import { analyzeMedia } from "../../services/semantic/orchestrator";
 import { decodeBlobAudio } from "../../services/semantic/audio-decode";
 import { drawOverlay } from "./overlay-draw";
@@ -18,6 +18,7 @@ import {
 import type {
   AnalyzerConfig,
   AnalyzerId,
+  DetectorStatus,
   SemanticEvent,
   SemanticTimeline,
 } from "../../services/semantic/types";
@@ -43,17 +44,41 @@ function fmt(t: number): string {
   return `${String(m).padStart(2, "0")}:${s}`;
 }
 
+/** Descrição curta de um evento para o readout do frame. */
+function describeFrameEvent(e: SemanticEvent): string {
+  const m = e.metadata;
+  if (e.type === "object" || e.type === "object_raw")
+    return `${m.label ?? m.rawLabel ?? "objeto"}${m.trackId ? ` #${m.trackId}` : ""}`;
+  if (e.type.startsWith("face_"))
+    return e.type.replace("face_", "").replace("_", " ");
+  if (e.type === "face_raw" || e.type === "face") return "rosto";
+  if (e.type === "pose_raw" || e.type === "pose") return `pose: ${m.pose}`;
+  if (e.type === "gesture") return `gesto: ${m.gesture}`;
+  if (e.type === "onscreen_text_raw" || e.type === "onscreen_text")
+    return `texto: "${String(m.text ?? "").slice(0, 24)}"`;
+  if (e.type === "scene_cut") return "corte de cena";
+  if (e.type === "scene_fade") return "fade";
+  if (e.type === "environment_raw" || e.type === "environment")
+    return `ambiente: ${m.scene}`;
+  return e.type;
+}
+
 export const SemanticLab: React.FC = () => {
   const [config, setConfig] = useState<AnalyzerConfig>(() => getAnalyzerConfig());
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
+  const [isImage, setIsImage] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState("");
   const [liveEvents, setLiveEvents] = useState<SemanticEvent[]>([]);
   const [timeline, setTimeline] = useState<SemanticTimeline | null>(null);
+  const [detectorStatus, setDetectorStatus] = useState<DetectorStatus[]>([]);
+  const [frameEvents, setFrameEvents] = useState<SemanticEvent[]>([]);
+  const [frameTime, setFrameTime] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const feedRef = useRef<SemanticEvent[]>([]);
@@ -72,28 +97,36 @@ export const SemanticLab: React.FC = () => {
     if (!file) return;
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setBlob(file);
+    setIsImage(file.type.startsWith("image/"));
     setVideoUrl(URL.createObjectURL(file));
     setTimeline(null);
     setLiveEvents([]);
+    setDetectorStatus([]);
+    setFrameEvents([]);
   };
 
   const run = useCallback(async () => {
     if (!blob) return;
     const video = videoRef.current;
-    const duration = video?.duration && Number.isFinite(video.duration)
-      ? video.duration
-      : 0;
+    // Imagem: duração fictícia de 1s (a mesma lógica de frame vale — 1 frame).
+    const duration = isImage
+      ? 1
+      : video?.duration && Number.isFinite(video.duration)
+        ? video.duration
+        : 0;
     if (!duration) return;
 
     setRunning(true);
     setProgress(0);
     setLiveEvents([]);
+    setDetectorStatus([]);
+    setFrameEvents([]);
     feedRef.current = [];
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setStage("Decodificando áudio");
-    const audioPcm = await decodeBlobAudio(blob);
+    setStage(isImage ? "Preparando" : "Decodificando áudio");
+    const audioPcm = isImage ? null : await decodeBlobAudio(blob);
 
     try {
       const result = await analyzeMedia({
@@ -106,9 +139,12 @@ export const SemanticLab: React.FC = () => {
           setProgress(f);
           setStage(s);
         },
+        onDetectorStatus: (statuses) => setDetectorStatus(statuses),
         onFrame: (frame, events) => {
-          // Sincroniza o preview com o frame analisado e desenha overlays.
-          if (video) video.currentTime = frame.time;
+          // Sincroniza o preview (vídeo) com o frame analisado.
+          if (!isImage && video) video.currentTime = frame.time;
+          setFrameTime(frame.time);
+          setFrameEvents(events);
           const canvas = canvasRef.current;
           if (canvas) {
             const ctx = canvas.getContext("2d");
@@ -127,7 +163,7 @@ export const SemanticLab: React.FC = () => {
       setRunning(false);
       abortRef.current = null;
     }
-  }, [blob, config]);
+  }, [blob, config, isImage]);
 
   const stop = () => {
     abortRef.current?.abort();
@@ -146,7 +182,28 @@ export const SemanticLab: React.FC = () => {
       {/* Coluna principal: preview + timeline */}
       <div className="space-y-4">
         <div className="relative overflow-hidden rounded-lg border border-border bg-black">
-          {videoUrl ? (
+          {videoUrl && isImage ? (
+            <>
+              <img
+                ref={imgRef}
+                src={videoUrl}
+                alt="teste"
+                className="w-full"
+                onLoad={() => {
+                  const im = imgRef.current;
+                  const c = canvasRef.current;
+                  if (im && c) {
+                    c.width = im.naturalWidth;
+                    c.height = im.naturalHeight;
+                  }
+                }}
+              />
+              <canvas
+                ref={canvasRef}
+                className="pointer-events-none absolute inset-0 h-full w-full"
+              />
+            </>
+          ) : videoUrl ? (
             <>
               <video
                 ref={videoRef}
@@ -171,10 +228,10 @@ export const SemanticLab: React.FC = () => {
           ) : (
             <label className="flex aspect-video cursor-pointer flex-col items-center justify-center gap-2 text-fg-muted">
               <Upload size={28} />
-              <span className="text-sm">Envie um vídeo de teste</span>
+              <span className="text-sm">Envie um vídeo ou imagem de teste</span>
               <input
                 type="file"
-                accept="video/*"
+                accept="video/*,image/*"
                 className="hidden"
                 onChange={(e) => onFile(e.target.files?.[0])}
               />
@@ -182,13 +239,47 @@ export const SemanticLab: React.FC = () => {
           )}
         </div>
 
+        {/* Readout do frame atual (o que está sendo detectado agora) */}
+        {(running || frameEvents.length > 0) && (
+          <div className="rounded-lg border border-border bg-bg-1 p-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <h4 className="text-xs font-medium text-fg">
+                Detecções no frame {fmt(frameTime)}
+              </h4>
+              <span className="text-[10px] text-fg-muted">
+                {frameEvents.length} detecções
+              </span>
+            </div>
+            {frameEvents.length === 0 ? (
+              <p className="text-[11px] text-fg-muted">
+                Nada detectado neste frame.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {frameEvents.map((e, i) => (
+                  <span
+                    key={i}
+                    className="rounded bg-bg-2 px-1.5 py-0.5 text-[11px] text-fg-2"
+                    title={JSON.stringify(e.metadata)}
+                  >
+                    {describeFrameEvent(e)}{" "}
+                    <span className="text-fg-muted">
+                      {Math.round(e.confidence * 100)}%
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-3">
           {videoUrl && (
             <label className="flex cursor-pointer items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs text-fg-2 hover:border-accent">
-              <Upload size={13} /> Trocar vídeo
+              <Upload size={13} /> Trocar mídia
               <input
                 type="file"
-                accept="video/*"
+                accept="video/*,image/*"
                 className="hidden"
                 onChange={(e) => onFile(e.target.files?.[0])}
               />
@@ -272,8 +363,38 @@ export const SemanticLab: React.FC = () => {
         )}
       </div>
 
-      {/* Coluna lateral: feed ao vivo + config */}
+      {/* Coluna lateral: status + feed ao vivo + config */}
       <div className="space-y-4">
+        {/* Status dos detectores — mostra o que carregou e o que falhou */}
+        {detectorStatus.length > 0 && (
+          <div className="rounded-lg border border-border bg-bg-1 p-3">
+            <h4 className="mb-2 text-xs font-medium text-fg">
+              Status dos detectores
+            </h4>
+            <div className="space-y-1">
+              {detectorStatus.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-1.5 text-[11px]"
+                  title={s.error}
+                >
+                  {s.ok ? (
+                    <Check size={11} className="text-status-success" />
+                  ) : (
+                    <X size={11} className="text-status-error" />
+                  )}
+                  <span className="text-fg-2">{s.label}</span>
+                  {!s.ok && (
+                    <span className="truncate text-fg-muted">
+                      — {s.error?.slice(0, 40)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="rounded-lg border border-border bg-bg-1 p-3">
           <h4 className="mb-2 text-xs font-medium text-fg">Eventos ao vivo</h4>
           <div className="h-40 space-y-0.5 overflow-y-auto text-[11px]">

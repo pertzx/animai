@@ -6,9 +6,11 @@
 
 import { FilesetResolver } from "@mediapipe/tasks-vision";
 
-// WASM do MediaPipe (versão casada com o pacote npm).
-const WASM_BASE =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm";
+// WASM do MediaPipe — a versão TEM de bater exatamente com o pacote npm
+// instalado (@mediapipe/tasks-vision), senão os modelos falham silenciosamente
+// e nada é detectado. Mantenha em sincronia com o package.json.
+const MEDIAPIPE_VERSION = "0.10.35";
+const WASM_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 
 // Modelos oficiais (Google Cloud Storage — gratuitos, open model cards).
 export const MODEL_URLS = {
@@ -30,7 +32,24 @@ export function getVisionFileset() {
   return filesetPromise;
 }
 
-/** GPU quando o config permite e o navegador suporta; senão CPU (WASM). */
-export function pickDelegate(useWebGPU: boolean): "GPU" | "CPU" {
-  return useWebGPU ? "GPU" : "CPU";
+/**
+ * Cria um task do MediaPipe tentando GPU primeiro (se permitido) e caindo para
+ * CPU/WASM se o delegate GPU falhar — muitos navegadores/GPUs não suportam o
+ * delegate GPU, o que antes fazia o detector falhar silenciosamente.
+ */
+export async function createWithDelegateFallback<T>(
+  create: (delegate: "GPU" | "CPU") => Promise<T>,
+  preferGpu: boolean,
+): Promise<T> {
+  if (preferGpu) {
+    try {
+      return await create("GPU");
+    } catch (err) {
+      console.warn(
+        "[semantic] delegate GPU falhou, usando CPU/WASM:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+  return create("CPU");
 }

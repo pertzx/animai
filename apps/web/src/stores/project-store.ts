@@ -69,6 +69,7 @@ import {
   deleteMediaBlob,
   loadProjectMedia,
   loadFileHandle,
+  saveFileHandle,
   loadDirectoryHandle,
 } from "../services/media-storage";
 import { restoreMediaItem } from "../utils/media-recovery";
@@ -120,7 +121,10 @@ export interface ProjectState {
   updateSettings: (settings: Partial<ProjectSettings>) => Promise<ActionResult>;
 
   // Media library actions
-  importMedia: (file: File) => Promise<ActionResult>;
+  importMedia: (
+    file: File,
+    fileHandle?: FileSystemFileHandle,
+  ) => Promise<ActionResult>;
   deleteMedia: (mediaId: string) => Promise<ActionResult>;
   replaceMediaAsset: (mediaId: string, file: File, sourceFolder?: string) => Promise<ActionResult>;
   renameMedia: (mediaId: string, name: string) => Promise<ActionResult>;
@@ -1637,7 +1641,7 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       // Media library actions
-      importMedia: async (file: File) => {
+      importMedia: async (file: File, fileHandle?: FileSystemFileHandle) => {
         const { project } = get();
 
         try {
@@ -1748,7 +1752,9 @@ export const useProjectStore = create<ProjectState>()(
             ),
             name: file.name,
             type: mediaType,
-            fileHandle: null,
+            // Guardar o handle do arquivo (persistente) evita duplicar o blob
+            // inteiro no IndexedDB — menos memória/travamento (prompt.txt #1).
+            fileHandle: fileHandle ?? null,
             blob: file,
             metadata: {
               // Images have no inherent duration (like graphics), duration is set on the clip
@@ -1779,15 +1785,32 @@ export const useProjectStore = create<ProjectState>()(
 
           set({ project: updatedProject });
 
-          try {
-            await saveMediaBlob(
-              updatedProject.id,
-              newMediaItem.id,
-              file,
-              newMediaItem.metadata,
-            );
-          } catch (err) {
-            console.error("[ProjectStore] Failed to persist media blob:", err);
+          if (fileHandle) {
+            // Modo econômico de memória: persiste só o handle (o arquivo fica no
+            // disco do usuário) — não duplica o blob inteiro no IndexedDB.
+            try {
+              await saveFileHandle(file.name, file.size, fileHandle);
+            } catch (err) {
+              console.error("[ProjectStore] Failed to persist file handle:", err);
+              // Se o handle não persistir, cai para o blob como garantia.
+              await saveMediaBlob(
+                updatedProject.id,
+                newMediaItem.id,
+                file,
+                newMediaItem.metadata,
+              ).catch(() => undefined);
+            }
+          } else {
+            try {
+              await saveMediaBlob(
+                updatedProject.id,
+                newMediaItem.id,
+                file,
+                newMediaItem.metadata,
+              );
+            } catch (err) {
+              console.error("[ProjectStore] Failed to persist media blob:", err);
+            }
           }
 
           if (mediaType === "video" && !thumbnailUrl) {

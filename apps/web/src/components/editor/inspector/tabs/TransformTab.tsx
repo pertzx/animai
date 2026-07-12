@@ -9,6 +9,7 @@ import {
 } from "../";
 import { InspectorSection } from "../shell/InspectorSection";
 import { KeyframeRow } from "../KeyframeDiamond";
+import { DepthControl } from "../DepthControl";
 
 interface TransformTabClip {
   id: string;
@@ -206,6 +207,15 @@ export const TransformTab: React.FC<TransformTabProps> = ({
           </InspectorSection>
         </>
       )}
+
+      {/* Profundidade 3D — usada pela câmera para o parallax (prompt.txt #2). */}
+      <InspectorSection
+        title="Profundidade 3D (câmera)"
+        sectionId="depth"
+        defaultOpen={false}
+      >
+        <DepthControl clipId={clipId} />
+      </InspectorSection>
 
       {showVideoControls &&
         selectedClip &&

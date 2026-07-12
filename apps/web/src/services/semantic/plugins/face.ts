@@ -19,7 +19,11 @@ import {
   FaceLandmarker,
   type FaceLandmarkerResult,
 } from "@mediapipe/tasks-vision";
-import { getVisionFileset, MODEL_URLS, pickDelegate } from "./mediapipe";
+import {
+  createWithDelegateFallback,
+  getVisionFileset,
+  MODEL_URLS,
+} from "./mediapipe";
 
 function blend(
   categories: Array<{ categoryName: string; score: number }>,
@@ -60,16 +64,20 @@ export class FaceAnalyzer implements SemanticAnalyzerPlugin {
   async init(context: AnalyzerContext): Promise<void> {
     if (this.landmarker) return;
     const fileset = await getVisionFileset();
-    this.landmarker = await FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: MODEL_URLS.faceLandmarker,
-        delegate: pickDelegate(context.config.performance.useWebGPU),
-      },
-      runningMode: "VIDEO",
-      numFaces: 4,
-      outputFaceBlendshapes: true,
-      outputFacialTransformationMatrixes: true,
-    });
+    this.landmarker = await createWithDelegateFallback(
+      (delegate) =>
+        FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath: MODEL_URLS.faceLandmarker,
+            delegate,
+          },
+          runningMode: "IMAGE",
+          numFaces: 4,
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true,
+        }),
+      context.config.performance.useWebGPU,
+    );
   }
 
   async analyzeFrame(
@@ -77,10 +85,7 @@ export class FaceAnalyzer implements SemanticAnalyzerPlugin {
     context: AnalyzerContext,
   ): Promise<SemanticEvent[]> {
     if (!this.landmarker) return [];
-    const result: FaceLandmarkerResult = this.landmarker.detectForVideo(
-      frame.bitmap,
-      Math.round(frame.time * 1000),
-    );
+    const result: FaceLandmarkerResult = this.landmarker.detect(frame.bitmap);
     const events: SemanticEvent[] = [];
     const expressionOn = context.config.enabled.expression;
 

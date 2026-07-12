@@ -326,9 +326,22 @@ export const AI_TOOLS: AiToolDefinition[] = [
     },
   },
   {
+    name: "set_element_depth",
+    description:
+      "Define a profundidade 3D de um clipe para o efeito de câmera/parallax. depth: 0 = plano da câmera, negativo (ex.: -500) = primeiro plano (move mais), positivo (ex.: 1200) = fundo (move menos). Combine profundidades diferentes entre clipes + apply_camera_move para dar aspecto 3D.",
+    parameters: {
+      type: "object",
+      properties: {
+        clipId: { type: "string" },
+        depth: { type: "number" },
+      },
+      required: ["clipId", "depth"],
+    },
+  },
+  {
     name: "apply_camera_move",
     description:
-      "Movimento de câmera 2D estilo Alight Motion aplicado à cena: keyframes {timeSec, x, y, zoom} (x/y em pixels do projeto com 0,0 no centro; zoom 1 = normal). O movimento é convertido em keyframes de position/scale nos clipes de vídeo/imagem do intervalo (funciona no preview e no export; um undo desfaz tudo). Ex.: zoom-in lento = [{timeSec:0,x:0,y:0,zoom:1},{timeSec:5,x:0,y:0,zoom:1.3}].",
+      "Movimento de câmera 3D com profundidade (estilo Alight Motion): keyframes {timeSec, x, y, zoom} (x/y em pixels do projeto com 0,0 no centro; zoom 1 = normal). Respeita a profundidade de cada clipe (set_element_depth): fundo se move menos, frente mais → parallax real. Convertido em keyframes de position/scale (funciona no preview e no export; um undo desfaz tudo). Ex.: parallax = [{timeSec:0,x:-160,y:0,zoom:1.2},{timeSec:5,x:160,y:0,zoom:1.2}] com clipes em profundidades diferentes.",
     parameters: {
       type: "object",
       properties: {
@@ -1081,6 +1094,18 @@ export async function executeAiTool(
               error:
                 "Nenhum clipe da mídia transcrita está na timeline; adicione a mídia à timeline primeiro.",
             };
+      }
+
+      case "set_element_depth": {
+        const { setClipDepth } = await import("../camera");
+        const clipId = str(args.clipId);
+        const depth = num(args.depth);
+        if (!clipId || depth === undefined) {
+          return { ok: false, error: "clipId e depth são obrigatórios" };
+        }
+        return setClipDepth(clipId, depth)
+          ? { ok: true, result: `Profundidade do clipe = ${depth}` }
+          : { ok: false, error: "clipe não encontrado" };
       }
 
       case "apply_camera_move": {

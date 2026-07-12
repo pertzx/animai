@@ -833,29 +833,19 @@ export const AssetsPanel: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
-  // Handle file import with loading state
-  const handleFileImport = useCallback(
-    async (files: FileList | null) => {
-      if (!files || files.length === 0) return;
-
+  // Importa uma lista de {file, handle?}. Quando há handle, o importMedia
+  // guarda só o handle (não duplica o blob) — menos memória (prompt.txt #1).
+  const importEntries = useCallback(
+    async (entries: Array<{ file: File; handle?: FileSystemFileHandle }>) => {
+      if (entries.length === 0) return;
       setIsImporting(true);
-      const fileArray = Array.from(files);
-
       try {
-        for (let i = 0; i < fileArray.length; i++) {
-          const file = fileArray[i];
+        for (let i = 0; i < entries.length; i++) {
+          const { file, handle } = entries[i];
           setImportProgress(
-            `Importing ${file.name} (${i + 1}/${fileArray.length})...`,
+            `Importing ${file.name} (${i + 1}/${entries.length})...`,
           );
-
-          const result = await importMedia(file);
-
-          // If it's a video with audio, extract audio to separate track
-          if (result.success && file.type.startsWith("video/")) {
-            setImportProgress(`Extracting audio from ${file.name}...`);
-            // Audio extraction is handled by the importMedia function
-            // The audio track is created automatically when adding to timeline
-          }
+          await importMedia(file, handle);
         }
       } catch (error) {
         console.error("Import failed:", error);
@@ -867,36 +857,98 @@ export const AssetsPanel: React.FC = () => {
     [importMedia],
   );
 
-  // Handle drag and drop import — capture FileSystemFileHandle for each dropped file
+  // Import via <input type=file> (sem handle → guarda o blob, como antes).
+  const handleFileImport = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      await importEntries(Array.from(files).map((file) => ({ file })));
+    },
+    [importEntries],
+  );
+
+  // Import preferencial: File System Access API — guarda só o handle do
+  // arquivo (path no disco do usuário), sem copiar o arquivo inteiro.
+  const supportsFilePicker =
+    typeof (window as unknown as { showOpenFilePicker?: unknown })
+      .showOpenFilePicker === "function";
+
+  const handlePickFiles = useCallback(async () => {
+    try {
+      const handles = await (
+        window as unknown as {
+          showOpenFilePicker: (opts: {
+            multiple: boolean;
+            types: Array<{ description: string; accept: Record<string, string[]> }>;
+          }) => Promise<FileSystemFileHandle[]>;
+        }
+      ).showOpenFilePicker({
+        multiple: true,
+        types: [
+          {
+            description: "Mídia",
+            accept: {
+              "video/*": [".mp4", ".mov", ".webm", ".mkv", ".avi"],
+              "audio/*": [".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"],
+              "image/*": [".png", ".jpg", ".jpeg", ".webp", ".gif"],
+            },
+          },
+        ],
+      });
+      const entries = await Promise.all(
+        handles.map(async (handle) => ({
+          file: await handle.getFile(),
+          handle,
+        })),
+      );
+      await importEntries(entries);
+    } catch {
+      // Usuário cancelou o seletor — ignora.
+    }
+  }, [importEntries]);
+
+  // Handle drag and drop import — captura o FileSystemFileHandle e o passa ao
+  // importMedia (evita duplicar o blob) quando o navegador suporta.
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
 
-      // Snapshot dataTransfer synchronously — it becomes inert after the first await.
-      const droppedFiles = e.dataTransfer.files;
-      const handlePromises =
-        "getAsFileSystemHandle" in DataTransferItem.prototype
-          ? Array.from(e.dataTransfer.items)
-              .filter((item) => item.kind === "file")
-              .map(async (item) => {
-                try {
-                  const handle = await (item as DataTransferItem & { getAsFileSystemHandle(): Promise<FileSystemHandle> }).getAsFileSystemHandle();
-                  if (handle.kind === "file") {
-                    const fileHandle = handle as FileSystemFileHandle;
-                    const file = await fileHandle.getFile();
-                    await saveFileHandle(file.name, file.size, fileHandle);
-                  }
-                } catch {
-                  // Ignore — handle capture is best-effort
-                }
-              })
-          : [];
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      const canHandle =
+        "getAsFileSystemHandle" in DataTransferItem.prototype;
+      const handleByKey = new Map<string, FileSystemFileHandle>();
 
-      await Promise.all(handlePromises);
-      handleFileImport(droppedFiles);
+      if (canHandle) {
+        await Promise.all(
+          Array.from(e.dataTransfer.items)
+            .filter((item) => item.kind === "file")
+            .map(async (item) => {
+              try {
+                const handle = await (
+                  item as DataTransferItem & {
+                    getAsFileSystemHandle(): Promise<FileSystemHandle>;
+                  }
+                ).getAsFileSystemHandle();
+                if (handle.kind === "file") {
+                  const fh = handle as FileSystemFileHandle;
+                  const f = await fh.getFile();
+                  handleByKey.set(`${f.name}:${f.size}`, fh);
+                }
+              } catch {
+                /* best-effort */
+              }
+            }),
+        );
+      }
+
+      await importEntries(
+        droppedFiles.map((file) => ({
+          file,
+          handle: handleByKey.get(`${file.name}:${file.size}`),
+        })),
+      );
     },
-    [handleFileImport],
+    [importEntries],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -1083,8 +1135,13 @@ export const AssetsPanel: React.FC = () => {
   );
 
   const triggerFileInput = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
+    // Prefere a File System Access API (guarda só o handle, não o blob).
+    if (supportsFilePicker) {
+      void handlePickFiles();
+    } else {
+      fileInputRef.current?.click();
+    }
+  }, [supportsFilePicker, handlePickFiles]);
 
   const handleImportBackground = useCallback(
     async (preset: BackgroundPreset) => {

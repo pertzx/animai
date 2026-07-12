@@ -40,6 +40,25 @@ export async function* extractFrames(
   blob: Blob,
   options: FrameSourceOptions,
 ): AsyncGenerator<AnalyzerFrame> {
+  // Imagens: a mesma lógica de análise de frame serve — um único frame em t=0.
+  if (blob.type.startsWith("image/")) {
+    const source = await createImageBitmap(blob);
+    const scale = Math.min(
+      1,
+      options.resolution / Math.max(source.width, source.height),
+    );
+    const width = Math.max(2, Math.round(source.width * scale));
+    const height = Math.max(2, Math.round(source.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d")!.drawImage(source, 0, 0, width, height);
+    source.close();
+    const bitmap = await createImageBitmap(canvas);
+    yield { time: 0, bitmap, width, height, index: 0 };
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const video = document.createElement("video");
   video.muted = true;

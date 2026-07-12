@@ -152,3 +152,11 @@ export interface SemanticSummaryLine {
   time: number;
   text: string;
 }
+
+/** Resultado do carregamento de um detector (para diagnóstico no Lab). */
+export interface DetectorStatus {
+  id: AnalyzerId;
+  label: string;
+  ok: boolean;
+  error?: string;
+}

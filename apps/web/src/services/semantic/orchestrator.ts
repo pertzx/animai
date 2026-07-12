@@ -12,6 +12,7 @@ import type {
   AnalyzerConfig,
   AnalyzerContext,
   AnalyzerFrame,
+  DetectorStatus,
   SemanticAnalyzerPlugin,
   SemanticEvent,
   SemanticTimeline,
@@ -33,6 +34,13 @@ export interface AnalyzeOptions {
   onProgress?: (fraction: number, stage: string) => void;
   /** Eventos vão saindo em streaming (para o feed ao vivo). */
   onEvents?: (events: SemanticEvent[]) => void;
+  /** Status de carregamento de cada detector (para diagnóstico no Lab). */
+  onDetectorStatus?: (statuses: DetectorStatus[]) => void;
+}
+
+/** Cede a thread principal para o navegador repintar (evita congelamento). */
+function yieldToUi(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 export async function analyzeMedia(
@@ -53,7 +61,25 @@ export async function analyzeMedia(
   for (const p of plugins) rawByPlugin.set(p.id, []);
 
   options.onProgress?.(0, "Carregando modelos");
-  await Promise.all(plugins.map((p) => p.init(context).catch(() => undefined)));
+  // Init com status por detector — falhas ficam VISÍVEIS (antes eram engolidas,
+  // por isso "só fala e texto" apareciam: os modelos de visão falhavam calados).
+  const statuses: DetectorStatus[] = await Promise.all(
+    plugins.map(async (p) => {
+      try {
+        await p.init(context);
+        return { id: p.id, label: p.label, ok: true };
+      } catch (err) {
+        console.error(`[semantic] init de ${p.id} falhou:`, err);
+        return {
+          id: p.id,
+          label: p.label,
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }),
+  );
+  options.onDetectorStatus?.(statuses);
 
   // 1. Plugins de sequência (áudio / STT) — rodam uma vez sobre a mídia toda.
   const sequencePlugins = plugins.filter((p) => p.analyzeSequence);
@@ -110,6 +136,8 @@ export async function analyzeMedia(
         0.1 + 0.8 * Math.min(1, done / total),
         "Analisando frames",
       );
+      // Respiro entre frames: mantém o preview/overlay/readout fluidos.
+      await yieldToUi();
     }
   }
 

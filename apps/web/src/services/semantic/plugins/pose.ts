@@ -15,7 +15,11 @@ import {
   PoseLandmarker,
   type PoseLandmarkerResult,
 } from "@mediapipe/tasks-vision";
-import { getVisionFileset, MODEL_URLS, pickDelegate } from "./mediapipe";
+import {
+  createWithDelegateFallback,
+  getVisionFileset,
+  MODEL_URLS,
+} from "./mediapipe";
 
 // Índices dos landmarks (BlazePose).
 const L = {
@@ -68,22 +72,23 @@ export class PoseAnalyzer implements SemanticAnalyzerPlugin {
   async init(context: AnalyzerContext): Promise<void> {
     if (this.landmarker) return;
     const fileset = await getVisionFileset();
-    this.landmarker = await PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: MODEL_URLS.poseLandmarker,
-        delegate: pickDelegate(context.config.performance.useWebGPU),
-      },
-      runningMode: "VIDEO",
-      numPoses: 2,
-    });
+    this.landmarker = await createWithDelegateFallback(
+      (delegate) =>
+        PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath: MODEL_URLS.poseLandmarker,
+            delegate,
+          },
+          runningMode: "IMAGE",
+          numPoses: 2,
+        }),
+      context.config.performance.useWebGPU,
+    );
   }
 
   async analyzeFrame(frame: AnalyzerFrame): Promise<SemanticEvent[]> {
     if (!this.landmarker) return [];
-    const result: PoseLandmarkerResult = this.landmarker.detectForVideo(
-      frame.bitmap,
-      Math.round(frame.time * 1000),
-    );
+    const result: PoseLandmarkerResult = this.landmarker.detect(frame.bitmap);
     const events: SemanticEvent[] = [];
 
     result.landmarks.forEach((landmarks, i) => {

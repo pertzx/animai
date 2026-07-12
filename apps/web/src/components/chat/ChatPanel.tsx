@@ -68,6 +68,7 @@ const TOOL_LABELS: Record<string, string> = {
   insert_component: "Inserindo componente",
   save_component: "Salvando componente",
   apply_camera_move: "Aplicando movimento de câmera",
+  set_element_depth: "Definindo profundidade 3D",
   web_search: "Pesquisando na web",
   list_catalog: "Consultando catálogo",
   get_media_insights: "Lendo análise da mídia",

@@ -13,7 +13,11 @@ import type {
   SemanticEvent,
 } from "../types";
 import { ObjectDetector, type ObjectDetectorResult } from "@mediapipe/tasks-vision";
-import { getVisionFileset, MODEL_URLS, pickDelegate } from "./mediapipe";
+import {
+  createWithDelegateFallback,
+  getVisionFileset,
+  MODEL_URLS,
+} from "./mediapipe";
 import { trackDetections, type Detection } from "./tracker";
 
 /** COCO (inglês) → rótulo pt-BR para o resumo. */
@@ -50,15 +54,19 @@ export class ObjectAnalyzer implements SemanticAnalyzerPlugin {
   async init(context: AnalyzerContext): Promise<void> {
     if (this.detector) return;
     const fileset = await getVisionFileset();
-    this.detector = await ObjectDetector.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: MODEL_URLS.objectDetector,
-        delegate: pickDelegate(context.config.performance.useWebGPU),
-      },
-      runningMode: "VIDEO",
-      scoreThreshold: context.config.precision.minConfidence,
-      maxResults: context.config.performance.maxObjects,
-    });
+    this.detector = await createWithDelegateFallback(
+      (delegate) =>
+        ObjectDetector.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath: MODEL_URLS.objectDetector,
+            delegate,
+          },
+          runningMode: "IMAGE",
+          scoreThreshold: context.config.precision.minConfidence,
+          maxResults: context.config.performance.maxObjects,
+        }),
+      context.config.performance.useWebGPU,
+    );
   }
 
   async analyzeFrame(
@@ -66,10 +74,7 @@ export class ObjectAnalyzer implements SemanticAnalyzerPlugin {
     context: AnalyzerContext,
   ): Promise<SemanticEvent[]> {
     if (!this.detector) return [];
-    const result: ObjectDetectorResult = this.detector.detectForVideo(
-      frame.bitmap,
-      Math.round(frame.time * 1000),
-    );
+    const result: ObjectDetectorResult = this.detector.detect(frame.bitmap);
     const wanted = context.config.objectClasses;
     const events: SemanticEvent[] = [];
     for (const det of result.detections) {

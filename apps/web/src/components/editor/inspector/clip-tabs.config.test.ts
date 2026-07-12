@@ -14,8 +14,8 @@ describe("clip-tabs.config", () => {
     ]);
   });
 
-  it("audio shows audio and ai", () => {
-    expect(getTabIdsForClipType("audio")).toEqual(["audio", "ai"]);
+  it("audio shows audio, animate and ai", () => {
+    expect(getTabIdsForClipType("audio")).toEqual(["audio", "animate", "ai"]);
   });
 
   it("text/shape/svg share transform/style/effects/animate", () => {

@@ -14,7 +14,11 @@ import {
   GestureRecognizer,
   type GestureRecognizerResult,
 } from "@mediapipe/tasks-vision";
-import { getVisionFileset, MODEL_URLS, pickDelegate } from "./mediapipe";
+import {
+  createWithDelegateFallback,
+  getVisionFileset,
+  MODEL_URLS,
+} from "./mediapipe";
 
 const GESTURE_PT: Record<string, string> = {
   Thumb_Up: "joinha",
@@ -37,14 +41,18 @@ export class HandsAnalyzer implements SemanticAnalyzerPlugin {
   async init(context: AnalyzerContext): Promise<void> {
     if (this.recognizer) return;
     const fileset = await getVisionFileset();
-    this.recognizer = await GestureRecognizer.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: MODEL_URLS.gestureRecognizer,
-        delegate: pickDelegate(context.config.performance.useWebGPU),
-      },
-      runningMode: "VIDEO",
-      numHands: 2,
-    });
+    this.recognizer = await createWithDelegateFallback(
+      (delegate) =>
+        GestureRecognizer.createFromOptions(fileset, {
+          baseOptions: {
+            modelAssetPath: MODEL_URLS.gestureRecognizer,
+            delegate,
+          },
+          runningMode: "IMAGE",
+          numHands: 2,
+        }),
+      context.config.performance.useWebGPU,
+    );
   }
 
   async analyzeFrame(
@@ -52,9 +60,8 @@ export class HandsAnalyzer implements SemanticAnalyzerPlugin {
     context: AnalyzerContext,
   ): Promise<SemanticEvent[]> {
     if (!this.recognizer) return [];
-    const result: GestureRecognizerResult = this.recognizer.recognizeForVideo(
+    const result: GestureRecognizerResult = this.recognizer.recognize(
       frame.bitmap,
-      Math.round(frame.time * 1000),
     );
     const events: SemanticEvent[] = [];
     const minConf = context.config.precision.minConfidence;

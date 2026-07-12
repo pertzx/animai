@@ -1,3 +1,7 @@
+O resultado disso> "aparentemente so detecta a fala e os textos que aparece na tela, e mesmo assim nem é tao bom porque nao detecta todo texto que aparece na tela" e a mesma logica de analise de frame deve servir pra imagens, implemente tambem o esp pro que ta sendo detectado em cada frame no lab do admin pra ver se funciona perfeitamente.:
+
+----------
+
 # Video & Audio Semantic Analyzer V2
  
 ## Contexto
@@ -669,3 +673,12 @@ Ela deve trabalhar exclusivamente com os eventos gerados pelo Semantic Media Ana
 - Timestamps precisos.
  
 - Preparado para análise em tempo real.
+
+-----
+
+
+1. O desempenho, travamento etc, ta horroroso, eu acho que um dos principais fatores é guardar o blob no site ao invez de pedir acesso do armazenamento e guardar o path do arquivo que a pessoa importou, dai nao iria prescisar guardar o blob inteiro do arquivo.
+
+2. quando eu falei que queria pra voce implementar um sistema de camera eu falei real, como se fosse uma camera, pra dar aspecto de profundidade pros elementos, dar um aspecto de 3d que nem o aligth motion.
+
+3. deve ser possivel fazer keyframe pra qualquer elemento e qualquer propiedade desse elemento tambem.

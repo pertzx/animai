@@ -40,7 +40,7 @@ export const TAB_DEFS: Record<InspectorTabId, InspectorTabDef> = {
 const TABS_BY_CLIP_TYPE: Record<InspectorClipType, InspectorTabId[]> = {
   video: ["transform", "color", "effects", "audio", "speed", "animate", "ai"],
   image: ["transform", "color", "effects", "speed", "animate", "ai"],
-  audio: ["audio", "ai"],
+  audio: ["audio", "animate", "ai"],
   text: ["transform", "style", "effects", "animate"],
   shape: ["transform", "style", "effects", "animate"],
   svg: ["transform", "style", "effects", "animate"],
