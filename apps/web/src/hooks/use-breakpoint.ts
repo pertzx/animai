@@ -7,7 +7,11 @@
  */
 import { useEffect, useState } from "react";
 
-const MOBILE_QUERY = "(max-width: 767px)";
+// Mobile = tela estreita OU aparelho de toque (pointer grosso) até 900px. O
+// segundo termo é uma rede de segurança para casos em que a largura reportada
+// não bate (ex.: viewport esquisito), garantindo o layout mobile no celular.
+const MOBILE_QUERY =
+  "(max-width: 767px), (pointer: coarse) and (max-width: 900px)";
 const TABLET_QUERY = "(min-width: 768px) and (max-width: 1023px)";
 const COARSE_POINTER_QUERY = "(pointer: coarse)";
 

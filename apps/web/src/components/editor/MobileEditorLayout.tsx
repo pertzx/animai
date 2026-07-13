@@ -33,8 +33,9 @@ export const MobileEditorLayout: React.FC = () => {
     <div className="flex h-full w-full flex-col overflow-hidden bg-bg text-fg font-sans">
       <Toolbar />
 
-      {/* Palco sempre visível no topo. */}
-      <div className="shrink-0 bg-stage-bg" style={{ height: "38vh" }}>
+      {/* Palco sempre visível no topo. dvh (não vh) para não estourar a altura
+          visível no navegador do celular. */}
+      <div className="shrink-0 bg-stage-bg" style={{ height: "38dvh" }}>
         <PanelErrorBoundary name="Stage">
           <Preview />
         </PanelErrorBoundary>
