@@ -26,6 +26,11 @@ export interface TimelineState {
   loopEnd: number;
   isScrubbing: boolean;
   scrubPosition: number | null;
+  // True while a clip is being dragged on the timeline. Inhibits the
+  // playhead-follow auto-scroll (Timeline.tsx) so the view doesn't jump
+  // under the cursor mid-drag.
+  isDraggingClip: boolean;
+  setDraggingClip: (dragging: boolean) => void;
   expandedTracks: Set<string>;
   expandedClipKeyframes: Set<string>;
   keyframeEditMode: boolean;
@@ -93,6 +98,12 @@ export const useTimelineStore = create<TimelineState>()(
 
     isScrubbing: false,
     scrubPosition: null,
+
+    isDraggingClip: false,
+    setDraggingClip: (dragging: boolean) => {
+      if (get().isDraggingClip === dragging) return;
+      set({ isDraggingClip: dragging });
+    },
 
     expandedTracks: new Set<string>(),
     expandedClipKeyframes: new Set<string>(),

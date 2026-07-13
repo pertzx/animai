@@ -58,6 +58,7 @@ export interface KeyboardShortcuts {
 }
 
 export interface UIState {
+  trackHeadersVisible: boolean;
   selectedItems: SelectionItem[];
   lastSelectedItem: SelectionItem | null;
   effectApplicationClipId: string | null;
@@ -118,6 +119,7 @@ export interface UIState {
   setAutoScroll: (enabled: boolean) => void;
   setTimelineMaximized: (maximized: boolean) => void;
   toggleTimelineMaximized: () => void;
+  toggleTrackHeaders: () => void;
   openModal: (modalId: string, data?: Record<string, unknown>) => void;
   closeModal: () => void;
   showContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
@@ -208,6 +210,7 @@ export const useUIStore = create<UIState>()(
 
         shortcuts: DEFAULT_SHORTCUTS,
 
+        trackHeadersVisible: true,
         theme: "dark",
         showWaveforms: true,
         showThumbnails: true,
@@ -485,6 +488,10 @@ export const useUIStore = create<UIState>()(
 
         toggleTimelineMaximized: () => {
           set((state) => ({ timelineMaximized: !state.timelineMaximized }));
+        },
+
+        toggleTrackHeaders: () => {
+          set((state) => ({ trackHeadersVisible: !state.trackHeadersVisible }));
         },
 
         openModal: (modalId: string, data?: Record<string, unknown>) => {

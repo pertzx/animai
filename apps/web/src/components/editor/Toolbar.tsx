@@ -101,6 +101,8 @@ export const Toolbar: React.FC = () => {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isRecorderOpen, setIsRecorderOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [panelsDropdownOpen, setPanelsDropdownOpen] = useState(false);
   const { importMedia } = useProjectStore();
   const { track } = useAnalytics();
 
@@ -109,6 +111,16 @@ export const Toolbar: React.FC = () => {
   useEffect(() => {
     setProjectNameDraft(project.name);
   }, [project.name]);
+
+  // Detect mobile viewport to collapse 4 panel-toggles into a single
+  // "Panels" dropdown button that saves ~100px of horizontal space.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
+  }, []);
 
   // Autosave timestamp from the project's modifiedAt date.
   const autosaveLabel = useMemo(() => {
@@ -720,73 +732,103 @@ export const Toolbar: React.FC = () => {
           <TooltipContent>Redo (⇧⌘Z)</TooltipContent>
         </Tooltip>
 
-        <div className="w-px h-4 bg-border mx-1" />
+                <div className="w-px h-4 bg-border mx-1" />
 
-        {/* History */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setIsHistoryOpen((v) => !v)}
-              className={`w-[26px] h-[26px] grid place-items-center rounded-md transition-colors ${
-                isHistoryOpen
-                  ? "bg-accent-soft text-accent"
-                  : "text-fg-2 hover:bg-hover hover:text-fg"
-              }`}
-            >
-              <History size={14} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Action history</TooltipContent>
-        </Tooltip>
+        {/* Desktop: 4 individual panel toggles. Mobile: hidden, replaced by
+            a single Panels dropdown that groups all 4 to save horizontal space. */}
+        {!isMobile ? (
+          <>
+            {/* History */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setIsHistoryOpen((v) => !v)}
+                  className={`w-[26px] h-[26px] grid place-items-center rounded-md transition-colors ${
+                    isHistoryOpen
+                      ? "bg-accent-soft text-accent"
+                      : "text-fg-2 hover:bg-hover hover:text-fg"
+                  }`}
+                >
+                  <History size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Action history</TooltipContent>
+            </Tooltip>
 
-        {/* Keyframe editor (moved here from old toolbar) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={toggleKeyframeEditor}
-              className={`w-[26px] h-[26px] grid place-items-center rounded-md transition-colors ${
-                keyframeEditorOpen
-                  ? "bg-accent-soft text-accent"
-                  : "text-fg-2 hover:bg-hover hover:text-fg"
-              }`}
-            >
-              <Diamond size={14} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Keyframe editor</TooltipContent>
-        </Tooltip>
+            {/* Keyframe editor */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleKeyframeEditor}
+                  className={`w-[26px] h-[26px] grid place-items-center rounded-md transition-colors ${
+                    keyframeEditorOpen
+                      ? "bg-accent-soft text-accent"
+                      : "text-fg-2 hover:bg-hover hover:text-fg"
+                  }`}
+                >
+                  <Diamond size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Keyframe editor</TooltipContent>
+            </Tooltip>
 
-        {/* Audio mixer (moved) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => togglePanel("audioMixer")}
-              className={`w-[26px] h-[26px] grid place-items-center rounded-md transition-colors ${
-                panels.audioMixer?.visible
-                  ? "bg-accent-soft text-accent"
-                  : "text-fg-2 hover:bg-hover hover:text-fg"
-              }`}
-            >
-              <Music size={14} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Audio mixer</TooltipContent>
-        </Tooltip>
+            {/* Audio mixer */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => togglePanel("audioMixer")}
+                  className={`w-[26px] h-[26px] grid place-items-center rounded-md transition-colors ${
+                    panels.audioMixer?.visible
+                      ? "bg-accent-soft text-accent"
+                      : "text-fg-2 hover:bg-hover hover:text-fg"
+                  }`}
+                >
+                  <Music size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Audio mixer</TooltipContent>
+            </Tooltip>
 
-        {/* Comments placeholder (matches mockup) */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => useUIStore.getState().openModal("scriptView")}
-              className="w-[26px] h-[26px] grid place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
-            >
-              <MessageSquare size={14} />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Project JSON / Comments</TooltipContent>
-        </Tooltip>
-
-        <div className="w-px h-4 bg-border mx-1" />
+            {/* Comments */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => useUIStore.getState().openModal("scriptView")}
+                  className="w-[26px] h-[26px] grid place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
+                >
+                  <MessageSquare size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Comments</TooltipContent>
+            </Tooltip>
+          </>
+        ) : (
+          <DropdownMenu open={panelsDropdownOpen} onOpenChange={setPanelsDropdownOpen}>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1 px-2 h-[26px] rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors text-[11px]">
+                Panels<ChevronDown size={12} className="ml-0.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-40">
+              <DropdownMenuItem onClick={() => { setIsHistoryOpen(v => !v); setPanelsDropdownOpen(false); }}>
+                <History size={13} className="mr-2" />History
+                {isHistoryOpen && <Check size={12} className="ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { toggleKeyframeEditor(); setPanelsDropdownOpen(false); }}>
+                <Diamond size={13} className="mr-2" />Keyframe Editor
+                {keyframeEditorOpen && <Check size={12} className="ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { togglePanel("audioMixer"); setPanelsDropdownOpen(false); }}>
+                <Music size={13} className="mr-2" />Audio Mixer
+                {panels.audioMixer?.visible && <Check size={12} className="ml-auto" />}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { useUIStore.getState().openModal("scriptView"); setPanelsDropdownOpen(false); }}>
+                <MessageSquare size={13} className="mr-2" />Comments
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}<div className="w-px h-4 bg-border mx-1" />
 
         {/* Pro pill — opens more menu (theme, settings, tours, recorder) */}
         <DropdownMenu>
