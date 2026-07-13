@@ -340,8 +340,8 @@ export const KeyframeEditorPanel: React.FC<KeyframeEditorPanelProps> = ({
       setIsDragging(false);
       setDragKeyframeId(null);
     };
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+    window.addEventListener("pointerup", handleGlobalMouseUp);
+    return () => window.removeEventListener("pointerup", handleGlobalMouseUp);
   }, []);
 
   const handleCopy = useCallback(() => {
@@ -449,7 +449,7 @@ export const KeyframeEditorPanel: React.FC<KeyframeEditorPanelProps> = ({
           height={GRAPH_HEIGHT}
           className="rounded border border-border cursor-crosshair"
           style={{ width: graphWidth, height: GRAPH_HEIGHT }}
-          onMouseDown={handleCanvasMouseDown}
+          data-tl-drag onPointerDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
         />

@@ -497,8 +497,8 @@ export const Timeline: React.FC = () => {
     if (!isBoxSelecting) return;
 
     const handleMouseUp = () => handleBoxSelectionEnd();
-    document.addEventListener("mouseup", handleMouseUp);
-    return () => document.removeEventListener("mouseup", handleMouseUp);
+    document.addEventListener("pointerup", handleMouseUp);
+    return () => document.removeEventListener("pointerup", handleMouseUp);
   }, [isBoxSelecting, handleBoxSelectionEnd]);
 
   const handleDropMedia = useCallback(
@@ -1034,7 +1034,7 @@ export const Timeline: React.FC = () => {
               setScrollX(e.currentTarget.scrollLeft);
               setScrollY(e.currentTarget.scrollTop);
             }}
-            onMouseDown={handleBoxSelectionStart}
+            data-tl-drag onPointerDown={handleBoxSelectionStart}
             onMouseMove={handleBoxSelectionMove}
             onDragOver={(e) => {
               e.preventDefault();

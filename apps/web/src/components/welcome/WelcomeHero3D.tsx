@@ -232,7 +232,7 @@ export const WelcomeHero3D: React.FC<WelcomeHero3DProps> = ({
       rendererRef.current.setSize(newWidth, newHeight);
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("pointermove", handleMouseMove);
     window.addEventListener("resize", handleResize);
 
     let time = 0;
@@ -289,7 +289,7 @@ export const WelcomeHero3D: React.FC<WelcomeHero3DProps> = ({
     animate();
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("pointermove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(frameIdRef.current);
 

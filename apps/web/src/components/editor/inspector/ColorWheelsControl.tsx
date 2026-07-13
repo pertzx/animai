@@ -143,12 +143,12 @@ const ColorWheel: React.FC<ColorWheelProps> = ({
 
       const handleMouseUp = () => {
         isDragging.current = false;
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("pointermove", handleMouseMove);
+        document.removeEventListener("pointerup", handleMouseUp);
       };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("pointermove", handleMouseMove);
+      document.addEventListener("pointerup", handleMouseUp);
     },
     [onChange],
   );
@@ -177,7 +177,7 @@ const ColorWheel: React.FC<ColorWheelProps> = ({
  hsl(360, 70%, 50%)
  )`,
         }}
-        onMouseDown={handleMouseDown}
+        data-tl-drag onPointerDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
         title="Drag to adjust color. Double-click to reset."
       >

@@ -5980,8 +5980,8 @@ export const Preview: React.FC = () => {
         }
       };
 
-      window.addEventListener("mouseup", handleGlobalMouseUp);
-      return () => window.removeEventListener("mouseup", handleGlobalMouseUp);
+      window.addEventListener("pointerup", handleGlobalMouseUp);
+      return () => window.removeEventListener("pointerup", handleGlobalMouseUp);
     }
   }, [
     interactionMode,
@@ -6272,7 +6272,7 @@ export const Preview: React.FC = () => {
               {/* Move handle (center) */}
               <div
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-primary/80 rounded-full flex items-center justify-center cursor-move pointer-events-auto hover:bg-primary transition-colors"
-                onMouseDown={handleClipMouseDown}
+                data-tl-drag onPointerDown={handleClipMouseDown}
                 title="Drag to move"
               >
                 <Move size={14} className="text-white" />
@@ -6296,37 +6296,37 @@ export const Preview: React.FC = () => {
               {/* Corner resize handles */}
               <div
                 className="absolute -left-2 -top-2 w-4 h-4 bg-white border-2 border-primary rounded-sm cursor-nw-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "nw")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "nw")}
               />
               <div
                 className="absolute -right-2 -top-2 w-4 h-4 bg-white border-2 border-primary rounded-sm cursor-ne-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "ne")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "ne")}
               />
               <div
                 className="absolute -left-2 -bottom-2 w-4 h-4 bg-white border-2 border-primary rounded-sm cursor-sw-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "sw")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "sw")}
               />
               <div
                 className="absolute -right-2 -bottom-2 w-4 h-4 bg-white border-2 border-primary rounded-sm cursor-se-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "se")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "se")}
               />
 
               {/* Edge resize handles */}
               <div
                 className="absolute left-1/2 -translate-x-1/2 -top-2 w-6 h-4 bg-white border-2 border-primary rounded-sm cursor-n-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "n")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "n")}
               />
               <div
                 className="absolute left-1/2 -translate-x-1/2 -bottom-2 w-6 h-4 bg-white border-2 border-primary rounded-sm cursor-s-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "s")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "s")}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-6 bg-white border-2 border-primary rounded-sm cursor-w-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "w")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "w")}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 -right-2 w-4 h-6 bg-white border-2 border-primary rounded-sm cursor-e-resize pointer-events-auto hover:bg-primary hover:border-white transition-colors"
-                onMouseDown={(e) => handleHandleMouseDown(e, "e")}
+                data-tl-drag onPointerDown={(e) => handleHandleMouseDown(e, "e")}
               />
             </div>
           )}
@@ -6348,7 +6348,7 @@ export const Preview: React.FC = () => {
               {/* Move handle (center) */}
               <div
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-cyan-500/80 rounded-full flex items-center justify-center cursor-move pointer-events-auto hover:bg-cyan-500 transition-colors"
-                onMouseDown={handleTextClipMouseDown}
+                data-tl-drag onPointerDown={handleTextClipMouseDown}
                 title="Drag to move text"
               >
                 <Move size={14} className="text-white" />
@@ -6372,37 +6372,37 @@ export const Preview: React.FC = () => {
               {/* Corner resize handles */}
               <div
                 className="absolute -left-2 -top-2 w-4 h-4 bg-white border-2 border-cyan-500 rounded-sm cursor-nw-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "nw")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "nw")}
               />
               <div
                 className="absolute -right-2 -top-2 w-4 h-4 bg-white border-2 border-cyan-500 rounded-sm cursor-ne-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "ne")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "ne")}
               />
               <div
                 className="absolute -left-2 -bottom-2 w-4 h-4 bg-white border-2 border-cyan-500 rounded-sm cursor-sw-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "sw")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "sw")}
               />
               <div
                 className="absolute -right-2 -bottom-2 w-4 h-4 bg-white border-2 border-cyan-500 rounded-sm cursor-se-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "se")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "se")}
               />
 
               {/* Edge resize handles */}
               <div
                 className="absolute left-1/2 -translate-x-1/2 -top-2 w-6 h-4 bg-white border-2 border-cyan-500 rounded-sm cursor-n-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "n")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "n")}
               />
               <div
                 className="absolute left-1/2 -translate-x-1/2 -bottom-2 w-6 h-4 bg-white border-2 border-cyan-500 rounded-sm cursor-s-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "s")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "s")}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-6 bg-white border-2 border-cyan-500 rounded-sm cursor-w-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "w")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "w")}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 -right-2 w-4 h-6 bg-white border-2 border-cyan-500 rounded-sm cursor-e-resize pointer-events-auto hover:bg-cyan-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleTextHandleMouseDown(e, "e")}
+                data-tl-drag onPointerDown={(e) => handleTextHandleMouseDown(e, "e")}
               />
             </div>
           )}
@@ -6425,7 +6425,7 @@ export const Preview: React.FC = () => {
               {/* Move handle (center) */}
               <div
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-green-500/80 rounded-full flex items-center justify-center cursor-move pointer-events-auto hover:bg-green-500 transition-colors"
-                onMouseDown={handleShapeClipMouseDown}
+                data-tl-drag onPointerDown={handleShapeClipMouseDown}
                 title="Drag to move shape"
               >
                 <Move size={14} className="text-white" />
@@ -6449,37 +6449,37 @@ export const Preview: React.FC = () => {
               {/* Corner resize handles */}
               <div
                 className="absolute -left-2 -top-2 w-4 h-4 bg-white border-2 border-green-500 rounded-sm cursor-nw-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "nw")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "nw")}
               />
               <div
                 className="absolute -right-2 -top-2 w-4 h-4 bg-white border-2 border-green-500 rounded-sm cursor-ne-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "ne")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "ne")}
               />
               <div
                 className="absolute -left-2 -bottom-2 w-4 h-4 bg-white border-2 border-green-500 rounded-sm cursor-sw-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "sw")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "sw")}
               />
               <div
                 className="absolute -right-2 -bottom-2 w-4 h-4 bg-white border-2 border-green-500 rounded-sm cursor-se-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "se")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "se")}
               />
 
               {/* Edge resize handles */}
               <div
                 className="absolute left-1/2 -translate-x-1/2 -top-2 w-6 h-4 bg-white border-2 border-green-500 rounded-sm cursor-n-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "n")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "n")}
               />
               <div
                 className="absolute left-1/2 -translate-x-1/2 -bottom-2 w-6 h-4 bg-white border-2 border-green-500 rounded-sm cursor-s-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "s")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "s")}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-6 bg-white border-2 border-green-500 rounded-sm cursor-w-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "w")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "w")}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 -right-2 w-4 h-6 bg-white border-2 border-green-500 rounded-sm cursor-e-resize pointer-events-auto hover:bg-green-500 hover:border-white transition-colors"
-                onMouseDown={(e) => handleShapeHandleMouseDown(e, "e")}
+                data-tl-drag onPointerDown={(e) => handleShapeHandleMouseDown(e, "e")}
               />
             </div>
           )}

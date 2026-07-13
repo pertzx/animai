@@ -354,7 +354,7 @@ const SpeedCurveCanvas: React.FC<{
         ref={canvasRef}
         width={280}
         height={120}
-        onMouseDown={handleMouseDown}
+        data-tl-drag onPointerDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}

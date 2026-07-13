@@ -303,11 +303,11 @@ export const CropModeView: React.FC<CropModeViewProps> = ({
 
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("pointermove", handleMouseMove);
+      window.addEventListener("pointerup", handleMouseUp);
       return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handleMouseMove);
+        window.removeEventListener("pointerup", handleMouseUp);
       };
     }
   }, [
@@ -489,7 +489,7 @@ export const CropModeView: React.FC<CropModeViewProps> = ({
                   width: cropPixels.width,
                   height: cropPixels.height,
                 }}
-                onMouseDown={(e) => handleMouseDown(e, "center")}
+                data-tl-drag onPointerDown={(e) => handleMouseDown(e, "center")}
               >
                 {/* Rule of thirds grid */}
                 <svg
@@ -546,7 +546,7 @@ export const CropModeView: React.FC<CropModeViewProps> = ({
                       left: handle.includes("w") ? -8 : undefined,
                       right: handle.includes("e") ? -8 : undefined,
                     }}
-                    onMouseDown={(e) =>
+                    data-tl-drag onPointerDown={(e) =>
                       handleMouseDown(e, handle as DragHandle)
                     }
                   />
@@ -555,19 +555,19 @@ export const CropModeView: React.FC<CropModeViewProps> = ({
                 {/* Edge handles */}
                 <div
                   className="absolute w-16 h-4 bg-white border-2 border-gray-800 rounded-sm cursor-ns-resize pointer-events-auto hover:bg-primary transition-colors -top-2 left-1/2 -translate-x-1/2"
-                  onMouseDown={(e) => handleMouseDown(e, "n")}
+                  data-tl-drag onPointerDown={(e) => handleMouseDown(e, "n")}
                 />
                 <div
                   className="absolute w-16 h-4 bg-white border-2 border-gray-800 rounded-sm cursor-ns-resize pointer-events-auto hover:bg-primary transition-colors -bottom-2 left-1/2 -translate-x-1/2"
-                  onMouseDown={(e) => handleMouseDown(e, "s")}
+                  data-tl-drag onPointerDown={(e) => handleMouseDown(e, "s")}
                 />
                 <div
                   className="absolute w-4 h-16 bg-white border-2 border-gray-800 rounded-sm cursor-ew-resize pointer-events-auto hover:bg-primary transition-colors -left-2 top-1/2 -translate-y-1/2"
-                  onMouseDown={(e) => handleMouseDown(e, "w")}
+                  data-tl-drag onPointerDown={(e) => handleMouseDown(e, "w")}
                 />
                 <div
                   className="absolute w-4 h-16 bg-white border-2 border-gray-800 rounded-sm cursor-ew-resize pointer-events-auto hover:bg-primary transition-colors -right-2 top-1/2 -translate-y-1/2"
-                  onMouseDown={(e) => handleMouseDown(e, "e")}
+                  data-tl-drag onPointerDown={(e) => handleMouseDown(e, "e")}
                 />
               </div>
             </>

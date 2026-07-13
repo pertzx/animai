@@ -21,10 +21,10 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-bg">
+    <div className="flex h-screen w-screen items-center justify-center bg-bg p-4">
       <form
         onSubmit={submit}
-        className="w-[22rem] space-y-4 rounded-xl border border-border bg-bg-1 p-6"
+        className="w-full max-w-[22rem] space-y-4 rounded-xl border border-border bg-bg-1 p-6"
       >
         <div className="flex items-center gap-2">
           <Clapperboard className="text-accent" size={22} />

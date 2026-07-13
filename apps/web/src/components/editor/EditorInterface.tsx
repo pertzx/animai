@@ -375,11 +375,11 @@ export const EditorInterface: React.FC = () => {
       document.body.style.userSelect = "";
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
     };
   }, []);
 
@@ -452,7 +452,7 @@ export const EditorInterface: React.FC = () => {
         <div
           className="bg-border hover:bg-accent/50 cursor-col-resize transition-colors"
           style={{ gridArea: "mh" }}
-          onMouseDown={beginResize("media")}
+          data-tl-drag onPointerDown={beginResize("media")}
         />
 
         <div
@@ -467,7 +467,7 @@ export const EditorInterface: React.FC = () => {
         <div
           className="bg-border hover:bg-accent/50 cursor-col-resize transition-colors"
           style={{ gridArea: "ih" }}
-          onMouseDown={beginResize("inspector")}
+          data-tl-drag onPointerDown={beginResize("inspector")}
         />
 
         <div
@@ -482,7 +482,7 @@ export const EditorInterface: React.FC = () => {
         <div
           className="bg-border hover:bg-accent/50 cursor-row-resize transition-colors"
           style={{ gridArea: "th" }}
-          onMouseDown={beginResize("timeline")}
+          data-tl-drag onPointerDown={beginResize("timeline")}
         />
 
         <div

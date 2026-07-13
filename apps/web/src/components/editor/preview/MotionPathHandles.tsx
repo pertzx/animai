@@ -110,11 +110,11 @@ export const MotionPathHandles: React.FC<MotionPathHandlesProps> = ({
 
   useEffect(() => {
     if (dragState) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("pointermove", handleMouseMove);
+      window.addEventListener("pointerup", handleMouseUp);
       return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handleMouseMove);
+        window.removeEventListener("pointerup", handleMouseUp);
       };
     }
   }, [dragState, handleMouseMove, handleMouseUp]);
@@ -167,7 +167,7 @@ export const MotionPathHandles: React.FC<MotionPathHandlesProps> = ({
                   stroke="white"
                   strokeWidth="1"
                   className="cursor-move pointer-events-auto"
-                  onMouseDown={(e) =>
+                  data-tl-drag onPointerDown={(e) =>
                     handleMouseDown(
                       e,
                       "cp1",
@@ -185,7 +185,7 @@ export const MotionPathHandles: React.FC<MotionPathHandlesProps> = ({
                   stroke="white"
                   strokeWidth="1"
                   className="cursor-move pointer-events-auto"
-                  onMouseDown={(e) =>
+                  data-tl-drag onPointerDown={(e) =>
                     handleMouseDown(
                       e,
                       "cp2",
@@ -201,7 +201,7 @@ export const MotionPathHandles: React.FC<MotionPathHandlesProps> = ({
             <g
               transform={`translate(${point.screenX}, ${point.screenY}) rotate(45)`}
               className="pointer-events-auto cursor-move"
-              onMouseDown={(e) =>
+              data-tl-drag onPointerDown={(e) =>
                 handleMouseDown(e, "point", index, point.screenX, point.screenY)
               }
               onMouseEnter={() => onPointHover(index)}

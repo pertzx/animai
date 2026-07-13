@@ -234,13 +234,13 @@ export const CurvesEditor: React.FC<CurvesEditorProps> = ({
     };
 
     if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("pointermove", handleMouseMove);
+      document.addEventListener("pointerup", handleMouseUp);
     }
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("pointermove", handleMouseMove);
+      document.removeEventListener("pointerup", handleMouseUp);
     };
   }, [isDragging, handlePointDrag]);
 
@@ -403,7 +403,7 @@ export const CurvesEditor: React.FC<CurvesEditorProps> = ({
                     r={12}
                     fill="transparent"
                     className="cursor-pointer"
-                    onMouseDown={handlePointMouseDown(index)}
+                    data-tl-drag onPointerDown={handlePointMouseDown(index)}
                     onDoubleClick={handlePointDoubleClick(index)}
                   />
                   {/* Visible point */}
