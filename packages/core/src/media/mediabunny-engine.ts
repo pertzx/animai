@@ -66,6 +66,13 @@ type MediaBunnyInput = {
   [Symbol.dispose]?: () => void;
 };
 
+/** Canvas embrulhado pelo mediabunny (canvas + tempo). */
+interface WrappedCanvasLike {
+  canvas: OffscreenCanvas | HTMLCanvasElement;
+  timestamp: number;
+  duration: number;
+}
+
 export class ExportFrameDecoder {
   private input: MediaBunnyInput | null = null;
   private sink: InstanceType<typeof import("mediabunny").CanvasSink> | null = null;
@@ -75,6 +82,13 @@ export class ExportFrameDecoder {
   private initialized = false;
   private reusableCanvas: OffscreenCanvas | null = null;
   private reusableCtx: OffscreenCanvasRenderingContext2D | null = null;
+  // Cursor sequencial (Opt export): decodifica em UM passe forward em vez de
+  // seek+decode aleatório por frame — o gargalo que fazia 40s levar horas.
+  private frameIter: AsyncGenerator<WrappedCanvasLike, void, unknown> | null =
+    null;
+  private pending: WrappedCanvasLike | null = null; // próximo frame (lookahead)
+  private current: WrappedCanvasLike | null = null; // frame ativo no último t
+  private cursorTime = -Infinity;
 
   constructor(mediabunny: typeof import("mediabunny"), file: File | Blob, width?: number) {
     this.mediabunny = mediabunny;
@@ -104,7 +118,8 @@ export class ExportFrameDecoder {
       return false;
     }
 
-    const sinkOptions: Record<string, unknown> = { poolSize: 2 };
+    // poolSize 3: seguramos current + pending + o que está decodificando.
+    const sinkOptions: Record<string, unknown> = { poolSize: 3 };
     if (this.width) {
       const aspectRatio = videoTrack.displayHeight / videoTrack.displayWidth;
       sinkOptions.width = this.width;
@@ -120,7 +135,13 @@ export class ExportFrameDecoder {
   async getFrame(timestamp: number): Promise<OffscreenCanvas | null> {
     if (!this.sink) return null;
 
-    const result = await this.sink.getCanvas(timestamp);
+    let result: WrappedCanvasLike | null;
+    try {
+      result = await this.getSequential(timestamp);
+    } catch {
+      // Qualquer problema no cursor sequencial → cai no acesso aleatório.
+      result = (await this.sink.getCanvas(timestamp)) as WrappedCanvasLike | null;
+    }
     if (!result) return null;
 
     const w = result.canvas.width;
@@ -132,8 +153,30 @@ export class ExportFrameDecoder {
     }
 
     this.reusableCtx!.clearRect(0, 0, w, h);
-    this.reusableCtx!.drawImage(result.canvas, 0, 0);
+    this.reusableCtx!.drawImage(result.canvas as CanvasImageSource, 0, 0);
     return this.reusableCanvas;
+  }
+
+  /**
+   * Frame ativo no tempo `t` via decode SEQUENCIAL (um passe forward). Reinicia
+   * o cursor só quando `t` anda para TRÁS (reverse ou outro trecho da mídia).
+   */
+  private async getSequential(t: number): Promise<WrappedCanvasLike | null> {
+    const EPS = 1e-4;
+    if (this.frameIter === null || t < this.cursorTime - EPS) {
+      this.frameIter = this.sink!.canvases(
+        Math.max(0, t),
+      ) as unknown as AsyncGenerator<WrappedCanvasLike, void, unknown>;
+      this.pending = (await this.frameIter.next()).value ?? null;
+      this.current = null;
+    }
+    // Avança mantendo o último frame que começa em (ou antes de) t.
+    while (this.pending && this.pending.timestamp <= t + EPS) {
+      this.current = this.pending;
+      this.pending = (await this.frameIter.next()).value ?? null;
+    }
+    this.cursorTime = t;
+    return this.current ?? this.pending;
   }
 
   dispose(): void {
@@ -142,6 +185,10 @@ export class ExportFrameDecoder {
       this.input = null;
     }
     this.sink = null;
+    this.frameIter = null;
+    this.pending = null;
+    this.current = null;
+    this.cursorTime = -Infinity;
     this.reusableCanvas = null;
     this.reusableCtx = null;
     this.initialized = false;
