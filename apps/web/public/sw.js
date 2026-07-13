@@ -10,9 +10,12 @@
  * - 35.4: Inform user that AI requires internet connectivity
  */
 
-const CACHE_NAME = "openreel-v1";
-const STATIC_CACHE_NAME = "openreel-static-v1";
-const DYNAMIC_CACHE_NAME = "openreel-dynamic-v1";
+// Bump a versão a cada release que precise invalidar o cache antigo no device
+// (o activate purga caches que não batam com estes nomes). Sem isso, aparelhos
+// ficavam presos numa versão anterior.
+const CACHE_NAME = "animai-v2-mobile";
+const STATIC_CACHE_NAME = "animai-static-v2-mobile";
+const DYNAMIC_CACHE_NAME = "animai-dynamic-v2-mobile";
 
 /**
  * Static assets to cache on install

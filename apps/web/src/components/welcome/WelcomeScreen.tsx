@@ -201,11 +201,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ initialTab }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,197,94,0.05),transparent_60%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(34,197,94,0.03),transparent_50%)]" />
 
-      <div className="relative h-full flex flex-col items-center justify-center px-6">
+      <div className="relative min-h-full flex flex-col items-center justify-center px-6 py-10 max-sm:justify-start">
         <div className="w-full max-w-3xl">
           <div className="flex flex-col items-center text-center mb-12">
             <div className="flex items-center gap-3 mb-6">
@@ -228,7 +228,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ initialTab }) => {
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-10">
             {FORMAT_OPTIONS.map((option) => {
               const Icon = option.icon;
               const isHovered = hoveredFormat === option.id;
