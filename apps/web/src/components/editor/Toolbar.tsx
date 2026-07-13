@@ -216,17 +216,27 @@ export const Toolbar: React.FC = () => {
       const generator = engine.exportVideo(project, videoSettings, writableStream);
       let finalResult: ExportResult | undefined;
 
+      // Throttle: atualiza o estado (e re-renderiza o editor) só quando o % muda
+      // de fato ou a fase muda — em vez de a cada frame (1200 re-renders num
+      // vídeo de 40s roubam CPU do encode no hardware fraco).
+      let lastPct = -1;
+      let lastPhase = "";
       while (true) {
         const { value, done } = await generator.next();
         if (done) {
           finalResult = value;
           break;
         }
-        setExportState((prev) => ({
-          ...prev,
-          progress: value.progress * 100,
-          phase: value.phase === "complete" ? "Complete!" : `${value.phase}...`,
-        }));
+        const pct = Math.round(value.progress * 100);
+        if (pct !== lastPct || value.phase !== lastPhase) {
+          lastPct = pct;
+          lastPhase = value.phase;
+          setExportState((prev) => ({
+            ...prev,
+            progress: pct,
+            phase: value.phase === "complete" ? "Complete!" : `${value.phase}...`,
+          }));
+        }
       }
 
       if (finalResult?.success) {

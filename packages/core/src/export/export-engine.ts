@@ -379,7 +379,10 @@ export class ExportEngine {
         bitrate: fullSettings.bitrate ? fullSettings.bitrate * 1000 : QUALITY_MEDIUM,
         keyFrameInterval:
           fullSettings.keyframeInterval / fullSettings.frameRate,
-        hardwareAcceleration: "prefer-software",
+        // Usa o encoder de HARDWARE quando disponível (Intel QuickSync, etc.) —
+        // ordens de magnitude mais rápido que software num dual-core. Cai para
+        // software sozinho se não houver hardware. Antes forçava software.
+        hardwareAcceleration: "prefer-hardware",
       });
       const audioSource = new AudioBufferSource({
         codec: audioCodecResult.codec as "aac" | "opus" | "mp3",
@@ -463,13 +466,20 @@ export class ExportEngine {
 
         this.currentExport!.framesRendered = frame + 1;
 
-        if ((frame + 1) % 5 === 0) {
+        // Com decode sequencial a memória já é limitada, então limpamos os
+        // caches com MUITO menos frequência (antes: a cada 5 frames + sleep de
+        // 2ms — puro overhead). Só uma manutenção esporádica.
+        if ((frame + 1) % 30 === 0) {
           this.videoEngine?.clearVideoElementCache();
           this.videoEngine?.clearCache();
           try {
             mediaEngine.clearFrameCache();
           } catch {}
-          await new Promise((resolve) => setTimeout(resolve, 2));
+        }
+        // Cede um macrotask a cada ~10 frames para o browser PINTAR a barra de
+        // progresso e manter a aba responsiva (sem serializar cada frame).
+        if ((frame + 1) % 10 === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
 
         yield this.createProgress(
