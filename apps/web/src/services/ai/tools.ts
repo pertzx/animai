@@ -7,9 +7,19 @@
  * so the agent loop can feed them back to the model for self-correction.
  */
 
-import type { Transition, TransitionType, Subtitle } from "@openreel/core";
+import type {
+  Transition,
+  TransitionType,
+  Subtitle,
+  TextStyle,
+  Transform,
+  BlendMode,
+  Text3DSettings,
+} from "@openreel/core";
+import { getSpeedEngine } from "@openreel/core";
 import { shortId } from "../../lib/short-id";
 import { useProjectStore } from "../../stores/project-store";
+import { useEngineStore } from "../../stores/engine-store";
 import { apiRequest, useAuthStore } from "../../stores/auth-store";
 import type { VideoEffectType } from "../../bridges/effects-bridge";
 import {
@@ -59,6 +69,25 @@ const TRANSITION_TYPES = [
   "slide",
   "zoom",
   "push",
+];
+
+const BLEND_MODES: BlendMode[] = [
+  "normal",
+  "multiply",
+  "screen",
+  "overlay",
+  "darken",
+  "lighten",
+  "color-dodge",
+  "color-burn",
+  "hard-light",
+  "soft-light",
+  "difference",
+  "exclusion",
+  "hue",
+  "saturation",
+  "color",
+  "luminosity",
 ];
 
 export const AI_TOOLS: AiToolDefinition[] = [
@@ -193,17 +222,23 @@ export const AI_TOOLS: AiToolDefinition[] = [
   },
   {
     name: "delete_clip",
-    description: "Remove um clipe da timeline.",
+    description:
+      "Remove um elemento pelo id: clipe de vídeo/imagem/áudio, TEXTO, vetor/forma (SVG) ou legenda. Funciona para qualquer tipo — passe o id que aparece em get_project_state.",
     parameters: {
       type: "object",
-      properties: { clipId: { type: "string" } },
+      properties: {
+        clipId: {
+          type: "string",
+          description: "id do elemento (clipe, texto, vetor ou legenda)",
+        },
+      },
       required: ["clipId"],
     },
   },
   {
     name: "delete_clips",
     description:
-      "Remove vários clipes da timeline de uma vez. Ação destrutiva em massa: o usuário confirma antes da execução.",
+      "Remove vários elementos de uma vez (clipes, textos, vetores, formas ou legendas), por id. Ação destrutiva em massa: o usuário confirma antes da execução.",
     parameters: {
       type: "object",
       properties: {
@@ -295,16 +330,79 @@ export const AI_TOOLS: AiToolDefinition[] = [
   {
     name: "add_text",
     description:
-      "Adiciona um texto/título na timeline. Cria a track de texto se necessário. animationPreset opcional (ex.: typewriter, fade, slide, bounce).",
+      "Adiciona um texto/título na timeline com POSIÇÃO, COR e TAMANHO. Cria a track de texto se necessário. Coordenadas normalizadas 0..1 (x=0 esquerda, 1 direita; y=0 topo, 1 base; centro=0.5,0.5). SEM x/y o texto vai pro centro — ao adicionar vários, use y diferentes (ex.: título y=0.2, subtítulo y=0.35) para NÃO sobrepor. Escolha cores com contraste (evite tudo branco). animationPreset opcional (typewriter, fade, slide-up, bounce, pop…).",
     parameters: {
       type: "object",
       properties: {
         text: { type: "string" },
         startTimeSec: { type: "number" },
         durationSec: { type: "number", default: 3 },
+        x: { type: "number", description: "Posição horizontal 0..1 (default 0.5)" },
+        y: { type: "number", description: "Posição vertical 0..1 (default 0.5)" },
+        fontSize: { type: "number", description: "Tamanho da fonte em px (default 48)" },
+        color: { type: "string", description: "Cor do texto em hex, ex.: #ffcc00" },
+        fontFamily: { type: "string" },
+        bold: { type: "boolean" },
+        align: { type: "string", enum: ["left", "center", "right"] },
+        backgroundColor: { type: "string", description: "Cor de fundo/caixa em hex (opcional)" },
+        strokeColor: { type: "string", description: "Cor do contorno em hex (opcional)" },
+        strokeWidth: { type: "number" },
+        italic: { type: "boolean" },
+        shadowColor: { type: "string", description: "Cor da sombra em hex (dá profundidade/legibilidade)" },
+        shadowBlur: { type: "number" },
+        letterSpacing: { type: "number", description: "Espaçamento entre letras (px)" },
+        lineHeight: { type: "number", description: "Altura da linha (ex.: 1.2)" },
+        textDecoration: { type: "string", enum: ["none", "underline", "line-through", "overline"] },
+        scale: { type: "number", description: "Escala (1 = normal)" },
+        rotation: { type: "number", description: "Rotação em graus" },
         animationPreset: { type: "string" },
       },
       required: ["text", "startTimeSec"],
+    },
+  },
+  {
+    name: "update_element",
+    description:
+      "Ajusta um elemento JÁ existente (texto, clipe de vídeo/imagem, ou vetor) pelo id: move (x,y 0..1), redimensiona (scale), rotaciona, muda opacidade e — para texto — cor/tamanho/fonte/alinhamento/fundo. Use para consertar sobreposições, alinhar, dar hierarquia e estilo. Confira as posições atuais em get_project_state antes.",
+    parameters: {
+      type: "object",
+      properties: {
+        elementId: { type: "string", description: "id do texto/clipe/vetor" },
+        x: { type: "number", description: "Posição horizontal 0..1" },
+        y: { type: "number", description: "Posição vertical 0..1" },
+        scale: { type: "number", description: "Escala (1 = normal)" },
+        rotation: { type: "number", description: "Rotação em graus" },
+        opacity: { type: "number", description: "Opacidade 0..1" },
+        color: { type: "string", description: "Cor em hex — texto (cor da letra) ou vetor (tint)" },
+        fontSize: { type: "number", description: "Tamanho da fonte (só texto)" },
+        fontFamily: { type: "string", description: "Fonte (só texto)" },
+        bold: { type: "boolean", description: "Negrito (só texto)" },
+        align: {
+          type: "string",
+          enum: ["left", "center", "right"],
+          description: "Alinhamento (só texto)",
+        },
+        backgroundColor: { type: "string", description: "Cor de fundo (só texto)" },
+        italic: { type: "boolean", description: "Itálico (só texto)" },
+        shadowColor: { type: "string", description: "Cor da sombra (só texto)" },
+        letterSpacing: { type: "number", description: "Espaçamento entre letras (só texto)" },
+        lineHeight: { type: "number", description: "Altura da linha (só texto)" },
+        textDecoration: {
+          type: "string",
+          enum: ["none", "underline", "line-through", "overline"],
+          description: "Decoração (só texto)",
+        },
+        threeD: { type: "boolean", description: "Extrusão 3D do texto (só texto)" },
+        depth: { type: "number", description: "Profundidade do 3D (só texto, ex.: 0.2)" },
+        borderRadius: { type: "number", description: "Cantos arredondados (clipe/vídeo/imagem)" },
+        speed: { type: "number", description: "Velocidade do clipe (1=normal, 2=2x, 0.5=lento) — clipe de vídeo/áudio" },
+        blendMode: {
+          type: "string",
+          enum: BLEND_MODES,
+          description: "Modo de mesclagem (clipe/vídeo/imagem)",
+        },
+      },
+      required: ["elementId"],
     },
   },
   {
@@ -400,7 +498,7 @@ export const AI_TOOLS: AiToolDefinition[] = [
   {
     name: "add_vector",
     description:
-      "Adiciona um vetor (SVG) à timeline como clipe gráfico. Use presetId da biblioteca (veja list_vector_presets) OU desenhe você mesmo passando markup SVG completo em svg (viewBox 0 0 100 100, use #ffffff para permitir tint). Ideal para setas, destaques, balões de fala e desenhos custom.",
+      "Adiciona um vetor (SVG) à timeline como clipe gráfico, com POSIÇÃO e TAMANHO. Use presetId da biblioteca (veja list_vector_presets) OU desenhe você mesmo passando markup SVG completo em svg (viewBox 0 0 100 100). Coordenadas normalizadas 0..1 (centro=0.5,0.5); sem x/y vai pro centro — posicione para não sobrepor outros elementos. Ideal para setas, destaques, balões de fala e desenhos custom.",
     parameters: {
       type: "object",
       properties: {
@@ -411,6 +509,11 @@ export const AI_TOOLS: AiToolDefinition[] = [
         },
         startTimeSec: { type: "number", default: 0 },
         durationSec: { type: "number", default: 5 },
+        x: { type: "number", description: "Posição horizontal 0..1 (omita para posição automática livre)" },
+        y: { type: "number", description: "Posição vertical 0..1 (omita para posição automática livre)" },
+        scale: { type: "number", description: "Escala (1 = normal)" },
+        color: { type: "string", description: "Cor do vetor em hex (pinta o vetor inteiro — tint)" },
+        opacity: { type: "number", description: "Opacidade 0..1" },
       },
       required: [],
     },
@@ -512,12 +615,189 @@ const num = (v: unknown): number | undefined =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.length > 0 ? v : undefined;
+const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+/** Remove `readonly` para montar patches editáveis (TextStyle/Transform o são). */
+type Mutable<T> = { -readonly [K in keyof T]: T[K] };
+
+/** Monta um patch de estilo de texto a partir dos args da IA (só o informado). */
+function buildTextStylePatch(
+  args: Record<string, unknown>,
+): Partial<TextStyle> {
+  const patch: Partial<Mutable<TextStyle>> = {};
+  const color = str(args.color);
+  if (color) patch.color = color;
+  const fontSize = num(args.fontSize);
+  if (fontSize !== undefined) patch.fontSize = fontSize;
+  const fontFamily = str(args.fontFamily);
+  if (fontFamily) patch.fontFamily = fontFamily;
+  if (typeof args.bold === "boolean") {
+    patch.fontWeight = args.bold ? "bold" : "normal";
+  }
+  const align = str(args.align);
+  if (align === "left" || align === "center" || align === "right") {
+    patch.textAlign = align;
+  }
+  const bg = str(args.backgroundColor);
+  if (bg) patch.backgroundColor = bg;
+  const strokeColor = str(args.strokeColor);
+  if (strokeColor) patch.strokeColor = strokeColor;
+  const strokeWidth = num(args.strokeWidth);
+  if (strokeWidth !== undefined) patch.strokeWidth = strokeWidth;
+  if (typeof args.italic === "boolean") {
+    patch.fontStyle = args.italic ? "italic" : "normal";
+  }
+  const shadowColor = str(args.shadowColor);
+  if (shadowColor) {
+    patch.shadowColor = shadowColor;
+    patch.shadowBlur = num(args.shadowBlur) ?? 6;
+  }
+  const letterSpacing = num(args.letterSpacing);
+  if (letterSpacing !== undefined) patch.letterSpacing = letterSpacing;
+  const lineHeight = num(args.lineHeight);
+  if (lineHeight !== undefined) patch.lineHeight = lineHeight;
+  const decoration = str(args.textDecoration);
+  if (
+    decoration === "underline" ||
+    decoration === "line-through" ||
+    decoration === "overline" ||
+    decoration === "none"
+  ) {
+    patch.textDecoration = decoration;
+  }
+  return patch;
+}
+
+/**
+ * Monta um patch de transform (posição/escala/rotação/opacidade) a partir dos
+ * args, mesclando x/y com a posição atual quando só um é informado.
+ */
+function buildTransformPatch(
+  args: Record<string, unknown>,
+  current?: Transform,
+): Partial<Transform> {
+  const patch: Partial<Mutable<Transform>> = {};
+  const x = num(args.x);
+  const y = num(args.y);
+  if (x !== undefined || y !== undefined) {
+    patch.position = {
+      x: clamp01(x ?? current?.position.x ?? 0.5),
+      y: clamp01(y ?? current?.position.y ?? 0.5),
+    };
+  }
+  const scale = num(args.scale);
+  if (scale !== undefined) patch.scale = { x: scale, y: scale };
+  const rotation = num(args.rotation);
+  if (rotation !== undefined) patch.rotation = rotation;
+  const opacity = num(args.opacity);
+  if (opacity !== undefined) patch.opacity = clamp01(opacity);
+  const borderRadius = num(args.borderRadius);
+  if (borderRadius !== undefined) patch.borderRadius = borderRadius;
+  return patch;
+}
+
+/** Monta as configurações de extrusão 3D do texto com defaults sensatos. */
+function make3DSettings(args: Record<string, unknown>): Text3DSettings {
+  return {
+    enabled: true,
+    depth: num(args.depth) ?? 0.2,
+    bevelThickness: 0.02,
+    bevelSize: 0.02,
+    bevelSegments: 3,
+    material: "basic",
+  };
+}
+
+/** Ys já ocupados por textos E gráficos (svg/shape/sticker) no intervalo. */
+function occupiedYs(store: Store, startTime: number, duration: number): number[] {
+  const ys: number[] = [];
+  const hits = (s: number, d: number) =>
+    s < startTime + duration && startTime < s + d;
+  for (const t of store.getAllTextClips()) {
+    if (hits(t.startTime, t.duration)) ys.push(t.transform.position.y);
+  }
+  const g = useEngineStore.getState().getGraphicsEngine?.();
+  if (g) {
+    const graphics = [
+      ...g.getAllSVGClips(),
+      ...g.getAllShapeClips(),
+      ...g.getAllStickerClips(),
+    ];
+    for (const c of graphics) {
+      if (hits(c.startTime, c.duration)) ys.push(c.transform.position.y);
+    }
+  }
+  return ys;
+}
+
+/**
+ * Escolhe uma posição vertical LIVRE para um elemento novo (texto ou vetor),
+ * evitando cair em cima de outro visível no mesmo instante. É o que impede o
+ * "empilha tudo no centro": em vez de depender do modelo, a tool distribui.
+ */
+function autoPlacement(
+  store: Store,
+  startTime: number,
+  duration: number,
+): { x: number; y: number } {
+  const slots = [0.2, 0.35, 0.5, 0.65, 0.8];
+  const used = occupiedYs(store, startTime, duration);
+  const y = slots.find((s) => !used.some((u) => Math.abs(u - s) < 0.07)) ?? 0.5;
+  return { x: 0.5, y };
+}
 
 /** Primeira mídia de vídeo do projeto (fallback quando a IA não passa id). */
 function firstVideoMediaId(store: Store): string | null {
   return (
     store.project.mediaLibrary.items.find((m) => m.type === "video")?.id ?? null
   );
+}
+
+/**
+ * Remove QUALQUER elemento pelo id, despachando para o método certo — clipe de
+ * track (vídeo/imagem/áudio), texto, vetor (SVG), forma ou legenda. É a causa
+ * do "erro ao deletar": removeClip só apaga clipes de track, então apagar um
+ * texto/vetor por ele falha. Aqui detectamos o tipo primeiro.
+ */
+async function deleteAnyElement(
+  store: Store,
+  id: string,
+): Promise<AiToolResult> {
+  // 1. Clipe de track (vídeo/imagem/áudio).
+  if (findClip(store, id)) {
+    const r = await store.removeClip(id);
+    return r.success
+      ? { ok: true, result: "clipe removido" }
+      : { ok: false, error: r.error?.message ?? "falha ao remover clipe" };
+  }
+  // 2. Texto.
+  if (store.getTextClip(id)) {
+    return store.deleteTextClip(id)
+      ? { ok: true, result: "texto removido" }
+      : { ok: false, error: "falha ao remover texto" };
+  }
+  // 3. Vetor (SVG).
+  if (store.getSVGClipById(id) ?? store.getSVGClip(id)) {
+    return store.deleteSVGClip(id)
+      ? { ok: true, result: "vetor removido" }
+      : { ok: false, error: "falha ao remover vetor" };
+  }
+  // 4. Forma (shape).
+  if (store.getShapeClip(id)) {
+    return store.deleteShapeClip(id)
+      ? { ok: true, result: "forma removida" }
+      : { ok: false, error: "falha ao remover forma" };
+  }
+  // 5. Legenda.
+  if (store.project.timeline.subtitles.some((s) => s.id === id)) {
+    store.removeSubtitle(id);
+    return { ok: true, result: "legenda removida" };
+  }
+  return {
+    ok: false,
+    error: `Elemento ${id} não encontrado. Confira os ids em get_project_state (pode ser clipe, texto, vetor, forma ou legenda).`,
+  };
 }
 
 interface SemanticEventLike {
@@ -861,30 +1141,26 @@ export async function executeAiTool(
           : { ok: false, error: r.error?.message ?? "move falhou" };
       }
 
-      case "delete_clip": {
-        const r = await store.removeClip(String(args.clipId));
-        return r.success
-          ? { ok: true, result: "clipe removido" }
-          : { ok: false, error: r.error?.message ?? "remoção falhou" };
-      }
+      case "delete_clip":
+        return deleteAnyElement(store, String(args.clipId));
 
       case "delete_clips": {
         const ids = Array.isArray(args.clipIds)
           ? args.clipIds.map(String)
           : [];
         if (ids.length === 0) return { ok: false, error: "clipIds vazio" };
-        store.beginHistoryGroup("IA: remover clipes");
+        store.beginHistoryGroup("IA: remover elementos");
         const failures: string[] = [];
         try {
           for (const id of ids) {
-            const r = await store.removeClip(id);
-            if (!r.success) failures.push(id);
+            const r = await deleteAnyElement(store, id);
+            if (!r.ok) failures.push(id);
           }
         } finally {
           store.endHistoryGroup();
         }
         return failures.length === 0
-          ? { ok: true, result: `${ids.length} clipes removidos` }
+          ? { ok: true, result: `${ids.length} elemento(s) removido(s)` }
           : {
               ok: false,
               error: `Falha ao remover: ${failures.join(", ")}`,
@@ -893,11 +1169,22 @@ export async function executeAiTool(
 
       case "add_clip": {
         const mediaId = String(args.mediaId);
-        const startTime = num(args.startTimeSec) ?? 0;
+        const startArg = num(args.startTimeSec);
         const trackId = str(args.trackId);
+        // Placement inteligente: sem startTime explícito numa track existente,
+        // ENFILEIRA após o último clipe (em vez de empilhar no tempo 0).
+        let startTime = startArg ?? 0;
+        if (startArg === undefined && trackId) {
+          const track = store.project.timeline.tracks.find((t) => t.id === trackId);
+          if (track && track.clips.length > 0) {
+            startTime = Math.max(
+              ...track.clips.map((c) => c.startTime + c.duration),
+            );
+          }
+        }
         const r = trackId
           ? await store.addClip(trackId, mediaId, startTime)
-          : await store.addClipToNewTrack(mediaId, startTime);
+          : await store.addClipToNewTrack(mediaId, startArg ?? 0);
         return r.success
           ? { ok: true, result: latestTimelineSummary() }
           : { ok: false, error: r.error?.message ?? "add falhou" };
@@ -1029,13 +1316,24 @@ export async function executeAiTool(
             .project.timeline.tracks.find((t) => t.type === "text");
         }
         if (!textTrack) return { ok: false, error: "track de texto indisponível" };
+        const stylePatch = buildTextStylePatch(args);
         const clip = store.createTextClip(
           textTrack.id,
           startTime,
           String(args.text),
           duration,
+          Object.keys(stylePatch).length > 0 ? stylePatch : undefined,
         );
         if (!clip) return { ok: false, error: "falha ao criar texto" };
+        // Posição/escala/rotação. Se a IA NÃO deu x/y, a tool escolhe um slot
+        // vertical livre (evita empilhar no centro por conta própria).
+        const transformPatch: Partial<Mutable<Transform>> = {
+          ...buildTransformPatch(args),
+        };
+        if (!transformPatch.position) {
+          transformPatch.position = autoPlacement(store, startTime, duration);
+        }
+        store.updateTextTransform(clip.id, transformPatch);
         const preset = str(args.animationPreset);
         if (preset) {
           store.applyTextAnimationPreset(
@@ -1043,7 +1341,102 @@ export async function executeAiTool(
             preset as Parameters<Store["applyTextAnimationPreset"]>[1],
           );
         }
-        return { ok: true, result: { textClipId: clip.id } };
+        const finalClip = store.getTextClip(clip.id) ?? clip;
+        return {
+          ok: true,
+          result: {
+            textClipId: clip.id,
+            x: round3(finalClip.transform.position.x),
+            y: round3(finalClip.transform.position.y),
+            color: finalClip.style.color,
+            fontSize: finalClip.style.fontSize,
+          },
+        };
+      }
+
+      case "update_element": {
+        const id = str(args.elementId);
+        if (!id) return { ok: false, error: "elementId vazio" };
+
+        // 1. Texto? (estilo + transform)
+        const textClip = store.getTextClip(id);
+        if (textClip) {
+          const changes: string[] = [];
+          const stylePatch = buildTextStylePatch(args);
+          if (Object.keys(stylePatch).length > 0) {
+            store.updateTextStyle(id, stylePatch);
+            changes.push("estilo");
+          }
+          const tPatch = buildTransformPatch(args, textClip.transform);
+          if (Object.keys(tPatch).length > 0) {
+            store.updateTextTransform(id, tPatch);
+            changes.push("posição/tamanho");
+          }
+          if (typeof args.threeD === "boolean") {
+            store.updateText3D(id, args.threeD ? make3DSettings(args) : undefined);
+            changes.push(args.threeD ? "3D" : "sem 3D");
+          }
+          return changes.length > 0
+            ? { ok: true, result: `Texto atualizado (${changes.join(", ")}).` }
+            : { ok: false, error: "Nenhuma mudança informada para o texto." };
+        }
+
+        // 2. Clipe de vídeo/imagem/gráfico na timeline?
+        const loc = findClip(store, id);
+        if (loc) {
+          const changes: string[] = [];
+          const tPatch = buildTransformPatch(args, loc.clip.transform);
+          if (Object.keys(tPatch).length > 0 && store.updateClipTransform(id, tPatch)) {
+            changes.push("posição/tamanho");
+          }
+          const speed = num(args.speed);
+          if (speed !== undefined && speed > 0) {
+            getSpeedEngine().setClipSpeed(id, speed, loc.clip.duration);
+            changes.push(`velocidade ${speed}x`);
+          }
+          const blend = str(args.blendMode);
+          if (blend && (BLEND_MODES as string[]).includes(blend)) {
+            store.updateClipBlendMode(id, blend as BlendMode);
+            changes.push("blend");
+          }
+          return changes.length > 0
+            ? { ok: true, result: `Clipe atualizado (${changes.join(", ")}).` }
+            : {
+                ok: false,
+                error: "Para clipes: x/y/scale/rotation/opacity/borderRadius, speed ou blendMode.",
+              };
+        }
+
+        // 3. Vetor (SVG): transform + cor (tint).
+        const svg = store.getSVGClipById(id) ?? store.getSVGClip(id);
+        if (svg) {
+          const changes: string[] = [];
+          const tPatch = buildTransformPatch(args, svg.transform);
+          if (Object.keys(tPatch).length > 0) {
+            store.updateShapeTransform(id, tPatch);
+            changes.push("posição/tamanho");
+          }
+          const vectorColor = str(args.color);
+          if (vectorColor) {
+            store.updateSVGClip(id, {
+              colorStyle: { colorMode: "tint", tintColor: vectorColor, tintOpacity: 1 },
+            });
+            changes.push("cor");
+          }
+          return changes.length > 0
+            ? { ok: true, result: `Vetor atualizado (${changes.join(", ")}).` }
+            : { ok: false, error: "Nenhuma mudança informada para o vetor." };
+        }
+
+        // 4. Forma (shape): só transform.
+        const tPatch = buildTransformPatch(args);
+        if (Object.keys(tPatch).length > 0 && store.updateShapeTransform(id, tPatch)) {
+          return { ok: true, result: "Forma reposicionada/redimensionada." };
+        }
+        return {
+          ok: false,
+          error: `Elemento ${id} não encontrado (texto, clipe, vetor ou forma).`,
+        };
       }
 
       case "add_captions": {
@@ -1226,9 +1619,35 @@ export async function executeAiTool(
           num(args.startTimeSec) ?? 0,
           num(args.durationSec) ?? 5,
         );
-        return clip
-          ? { ok: true, result: { svgClipId: clip.id, trackId: graphicsTrack.id } }
-          : { ok: false, error: "falha ao importar o SVG" };
+        if (!clip) return { ok: false, error: "falha ao importar o SVG" };
+        // Posição/escala. Se a IA não deu x/y, escolhe um slot livre (evita
+        // empilhar no centro por conta própria).
+        const transformPatch: Partial<Mutable<Transform>> = {
+          ...buildTransformPatch(args),
+        };
+        if (!transformPatch.position) {
+          transformPatch.position = autoPlacement(
+            store,
+            num(args.startTimeSec) ?? 0,
+            num(args.durationSec) ?? 5,
+          );
+        }
+        store.updateShapeTransform(clip.id, transformPatch);
+        // Cor do vetor (tint) — antes a IA não tinha como pintar um vetor.
+        const vectorColor = str(args.color);
+        if (vectorColor) {
+          store.updateSVGClip(clip.id, {
+            colorStyle: {
+              colorMode: "tint",
+              tintColor: vectorColor,
+              tintOpacity: 1,
+            },
+          });
+        }
+        return {
+          ok: true,
+          result: { svgClipId: clip.id, trackId: graphicsTrack.id },
+        };
       }
 
       case "import_attachment": {

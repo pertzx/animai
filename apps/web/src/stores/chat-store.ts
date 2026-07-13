@@ -16,6 +16,7 @@ import {
   setCurrentSummary,
 } from "../services/ai/agent";
 import { loadChat, saveChat, clearChat } from "../services/ai/chat-db";
+import { runSdkTurn, USE_SDK_AGENT } from "../services/ai/sdk/agent-runtime";
 import { useProjectStore } from "./project-store";
 
 interface PendingConfirmation {
@@ -49,6 +50,38 @@ let abortController: AbortController | null = null;
 
 function lastTurn(turns: ChatTurn[]): ChatTurn {
   return turns[turns.length - 1];
+}
+
+/** Mensagens recentes mantidas com o resultado de tool completo. */
+const KEEP_FULL_TOOL_RESULTS = 8;
+/** Só encurta resultados grandes (os pequenos não valem o esforço). */
+const TOOL_RESULT_TRIM_THRESHOLD = 200;
+
+/**
+ * Enxuga resultados de tools ANTIGOS do histórico para não reenviar payloads
+ * grandes (estado do projeto, timeline semântica…) a cada requisição. Mantém a
+ * mensagem e o tool_call_id intactos — só troca o conteúdo por um stub — para
+ * NÃO quebrar o pareamento assistant→tool que a API exige. O modelo pode
+ * reconsultar se precisar do detalhe.
+ */
+function trimOldToolResults(messages: LlmMessage[]): LlmMessage[] {
+  const cutoff = messages.length - KEEP_FULL_TOOL_RESULTS;
+  if (cutoff <= 0) return messages;
+  return messages.map((m, i) => {
+    if (
+      i < cutoff &&
+      m.role === "tool" &&
+      typeof m.content === "string" &&
+      m.content.length > TOOL_RESULT_TRIM_THRESHOLD
+    ) {
+      return {
+        ...m,
+        content:
+          '{"ok":true,"result":"[resultado antigo omitido — reconsulte se precisar]"}',
+      };
+    }
+    return m;
+  });
 }
 
 export const useChatStore = create<ChatState>((set, get) => {
@@ -145,7 +178,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       });
 
       try {
-        await runAgentTurn(
+        const runTurn = USE_SDK_AGENT ? runSdkTurn : runAgentTurn;
+        await runTurn(
           llmMessages,
           {
             onIterationStart: () => {
@@ -259,10 +293,10 @@ export const useChatStore = create<ChatState>((set, get) => {
         abortController = null;
         const requests = get().requestsSinceCompact + 1;
         set({ running: false, pendingConfirmation: null, requestsSinceCompact: requests });
-        persist();
 
         // Memory compaction every N requests (prd.txt §3.4).
         if (requests >= COMPACT_EVERY_N_REQUESTS) {
+          persist();
           set({ compacting: true });
           try {
             const { summary, llmMessages: all } = get();
@@ -282,6 +316,11 @@ export const useChatStore = create<ChatState>((set, get) => {
           } finally {
             set({ compacting: false });
           }
+        } else {
+          // Entre compactações: enxuga os resultados de tools antigos para não
+          // reenviar payloads grandes a cada requisição (economia de tokens).
+          set((s) => ({ llmMessages: trimOldToolResults(s.llmMessages) }));
+          persist();
         }
       }
     },

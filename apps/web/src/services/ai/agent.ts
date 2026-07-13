@@ -11,6 +11,12 @@ import { API_URL, useAuthStore } from "../../stores/auth-store";
 import { getAnimaiPrefs } from "../../stores/settings-store";
 import { AI_TOOLS, executeAiTool, getToolDefinition } from "./tools";
 import { getCurrentProjectContext } from "./project-context";
+import {
+  recordToolError,
+  renderWorkingMemory,
+  resetWorkingMemory,
+} from "./working-memory";
+import { ELEMENT_CAPABILITIES_DOC } from "./element-capabilities";
 
 /** OpenAI-compatible chat message (what the providers understand). */
 export interface LlmMessage {
@@ -68,32 +74,49 @@ export interface StreamResult {
 
 const MAX_AGENT_ITERATIONS = 12;
 
-export const COMPACT_EVERY_N_REQUESTS = 10;
+export const COMPACT_EVERY_N_REQUESTS = 4;
 export const SUMMARY_CHAR_LIMIT = 5000;
 
 export function buildSystemPrompt(summary: string): string {
   const context = getCurrentProjectContext();
   const customPrompt = getAnimaiPrefs().customAiPrompt.trim();
-  return [
-    "Você é o assistente de edição de vídeo do AnimAI, integrado ao editor.",
-    "Você edita o vídeo do usuário chamando tools; toda mudança aparece imediatamente na timeline e pode ser desfeita (undo).",
-    "Regras:",
-    "- Sempre confira ids e tempos atuais com get_project_state antes de editar (o estado muda entre mensagens).",
-    "- Tempos em segundos. Responda em português, de forma curta e direta.",
-    "- Se uma tool falhar, leia o erro, corrija os parâmetros e tente de novo.",
-    "- Não invente ids de clipes ou mídias.",
-    "- O contexto já traz, por mídia: metadados do arquivo (file), transcrição (transcripts) e análise local (insights: perfil de energia do áudio mesmo sem fala — música/silêncio/BPM — e onScreenText, texto embutido na tela via OCR). Use essas informações direto do contexto, sem tool.",
-    "- editorState mostra o que o usuário está fazendo AGORA: playhead (clipsAtPlayhead = o que ele está vendo), selectedClips (o que está selecionado) e recentActions (o que acabou de acontecer). Quando o usuário disser 'esse clipe', 'aqui', 'isso que eu fiz', resolva por editorState em vez de perguntar.",
-    "- Análise semântica do vídeo: você NUNCA vê o vídeo diretamente. Para entender o conteúdo visual (pessoas, objetos, veículos, animais, rostos, sorrisos/expressões, poses, gestos, cenas/cortes, textos na tela, ambiente), use a Timeline Semântica. Se media[].semanticTimeline.available existir, use get_semantic_timeline/find_moments direto; senão, chame run_semantic_analysis primeiro (demora). Para editar por intenção (cortar silêncios, dar zoom quando a pessoa sorri, achar animais/veículos, montar Shorts/melhores momentos), busque os momentos com find_moments e aplique com split_clip/trim_clip/delete_clip/apply_camera_move. cut_silences automatiza a remoção de silêncios.",
-    "- Só chame get_media_insights se uma mídia não tiver o campo insights (a tool dispara a análise local e espera) ou se precisar dos segmentos completos.",
-    customPrompt
-      ? `\nInstruções personalizadas do usuário (perfil):\n${customPrompt.slice(0, 2000)}`
-      : "",
-    summary
-      ? `\nResumo da conversa até aqui (memória compactada):\n${summary}`
-      : "",
-    `\nEstado atual do projeto (JSON global):\n${JSON.stringify(context)}`,
-  ].join("\n");
+  const workingMemory = renderWorkingMemory();
+
+  const parts = [
+    "Você é o editor de vídeo AGÊNTICO do AnimAI, dentro do editor. Você EDITA o vídeo chamando tools; toda mudança aparece na timeline e pode ser desfeita (undo). Você age como um profissional: pensa, planeja, executa e confere o próprio trabalho.",
+    "",
+    "TRABALHE EM FASES, raciocinando de forma concisa antes de agir:",
+    "1) ENTENDER — reformule em 1 frase o que o usuário quer. Se o pedido for AMBÍGUO ou faltar informação essencial para não errar, faça UMA pergunta objetiva e pare (não chute).",
+    "2) PLANEJAR — para tarefas de várias etapas, liste 2 a 6 passos curtos e verificáveis ANTES de agir. Pedido trivial (ex.: uma saudação, uma pergunta): pule direto para RESPONDER.",
+    "3) AGIR — execute UM passo por vez. SEMPRE chame get_project_state antes de editar, para pegar ids e posições atuais (o estado muda entre mensagens). Nunca invente ids.",
+    "4) VALIDAR — depois de editar, releia o estado e confira que o objetivo foi cumprido: sem sobreposição (o campo overlap:true no contexto sinaliza colisão), cores com contraste, tempos e ids certos. Se algo ficou errado, CORRIJA (update_element/delete_clip) e valide de novo. NUNCA finalize um pedido de edição sem esta fase.",
+    "5) RESPONDER — só no final, dê uma resposta CURTA ao usuário (brevidade vale só aqui; nas fases acima, pense o quanto precisar).",
+    "",
+    "GUIA DE TOOLS (escolha a família certa):",
+    "- Consultar: get_project_state (estado/ids/posições/overlap), get_transcript (fala), get_media_insights (áudio/OCR), get_semantic_timeline e find_moments (conteúdo visual do vídeo).",
+    "- Mover no TEMPO: split_clip / trim_clip / move_clip. Mover/estilizar na TELA (posição, cor, tamanho): update_element. NÃO confunda tempo com posição.",
+    "- Criar: add_text e add_vector (com x, y, cor, tamanho), add_clip, apply_effect, apply_transition, add_captions, cut_silences, apply_camera_move.",
+    "- Apagar QUALQUER elemento (clipe, texto, vetor, legenda) pelo id: delete_clip.",
+    "- Se uma tool falhar, LEIA o erro, diagnostique a causa, ajuste os parâmetros e tente de novo — não repita o mesmo erro.",
+    "",
+    "Você é o DIRETOR DE ARTE: cada texto/clipe/vetor no contexto traz x, y, color, fontSize e overlap — LEIA antes de criar/editar. Consulte o manual abaixo para saber TODA propriedade que cada elemento aceita; não deixe nada no padrão sem intenção.",
+    "",
+    ELEMENT_CAPABILITIES_DOC,
+    "",
+    "CONTEXTO: o JSON do projeto já traz, por mídia: file (metadados), transcripts (fala, pode vir resumida — use get_transcript para o texto completo) e insights (energia de áudio/OCR). Use direto, sem tool. editorState mostra o AGORA: clipsAtPlayhead (o que o usuário vê), selectedClips (seleção), recentActions — quando ele disser 'esse clipe'/'aqui'/'isso', resolva por editorState.",
+    "ANÁLISE SEMÂNTICA: você NUNCA vê o vídeo. Para conteúdo visual (pessoas, objetos, rostos, expressões, poses, cenas/cortes, texto na tela, ambiente) use a Timeline Semântica: se media[].semanticTimeline.available, use get_semantic_timeline/find_moments; senão run_semantic_analysis antes (demora). Edite por intenção com find_moments + split_clip/trim_clip/delete_clip/apply_camera_move; cut_silences remove silêncios.",
+  ];
+
+  if (workingMemory) parts.push(workingMemory);
+  if (customPrompt) {
+    parts.push(`\nInstruções personalizadas do usuário (perfil):\n${customPrompt.slice(0, 2000)}`);
+  }
+  if (summary) {
+    parts.push(`\nResumo da conversa até aqui (memória compactada):\n${summary}`);
+  }
+  parts.push(`\nEstado atual do projeto (JSON global):\n${JSON.stringify(context)}`);
+
+  return parts.join("\n");
 }
 
 /**
@@ -220,6 +243,9 @@ export async function runAgentTurn(
   callbacks: AgentRunCallbacks,
   signal: AbortSignal,
 ): Promise<void> {
+  // Novo turno: zera os erros de tools acumulados (memória de trabalho).
+  resetWorkingMemory();
+
   for (let i = 0; i < MAX_AGENT_ITERATIONS; i++) {
     if (signal.aborted) return;
     callbacks.onIterationStart();
@@ -281,6 +307,11 @@ export async function runAgentTurn(
           ? JSON.stringify(toolResult.result ?? "ok")
           : (toolResult.error ?? "erro desconhecido"),
       };
+      // Erro fica saliente na memória de trabalho para o modelo corrigir na
+      // fase VALIDAR, em vez de repetir o mesmo erro ou desistir calado.
+      if (!toolResult.ok) {
+        recordToolError(`${call.function.name}: ${outcome.result}`);
+      }
       callbacks.onToolEnd(call, outcome);
       messages.push({
         role: "tool",
@@ -296,6 +327,11 @@ export async function runAgentTurn(
 let currentSummary = "";
 export function setCurrentSummary(summary: string): void {
   currentSummary = summary;
+}
+
+/** System prompt atual (com o resumo vigente) — usado pelo runtime do SDK. */
+export function currentSystemPrompt(): string {
+  return buildSystemPrompt(currentSummary);
 }
 
 /** Ask the backend to update the compacted summary (prd.txt §3.4). */

@@ -382,6 +382,114 @@ export async function handleChat(req: Request, res: Response): Promise<void> {
   }
 }
 
+/**
+ * POST /api/ai/v1/chat/completions — passthrough OpenAI-compatible para o
+ * OpenAI Agents SDK rodando no navegador. O SDK fala o protocolo padrão
+ * /chat/completions; aqui autenticamos (JWT vem como Bearer), checamos saldo,
+ * FORÇAMOS o modelo do provider (o client não escolhe), injetamos a key real e
+ * repassamos o stream cru. Billing igual ao /api/ai/chat. Assim a key nunca vai
+ * ao client e a lógica de providers (todos OpenAI-compatible) fica intacta.
+ */
+export async function handleChatCompletions(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = req.auth!.userId;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+
+  const check = await checkBalance(userId);
+  if (!check.ok) {
+    res.status(check.status).json({ error: check.error });
+    return;
+  }
+  const provider = await resolveProvider();
+  if (!provider) {
+    res.status(503).json({ error: "Nenhum provider de IA configurado." });
+    return;
+  }
+
+  const callProvider = (includeUsage: boolean) =>
+    fetch(`${provider.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${provider.apiKey}`,
+      },
+      body: JSON.stringify({
+        ...body,
+        model: provider.model, // servidor decide o modelo, não o client
+        stream: true,
+        ...(includeUsage ? { stream_options: { include_usage: true } } : {}),
+      }),
+    });
+
+  let upstream = await callProvider(true);
+  if (upstream.status === 400) upstream = await callProvider(false);
+
+  if (!upstream.ok || !upstream.body) {
+    const detail = await upstream.text().catch(() => "");
+    res.status(502).json({
+      error: `Provider ${provider.name} respondeu ${upstream.status}: ${detail.slice(0, 300)}`,
+    });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let reportedUsage: { prompt: number; completion: number } | null = null;
+  let streamedChars = 0;
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value, { stream: true });
+      res.write(text); // passthrough cru para o SDK
+      buffer += text;
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(payload) as {
+            usage?: { prompt_tokens?: number; completion_tokens?: number };
+            choices?: Array<{ delta?: { content?: string | null } }>;
+          };
+          if (chunk.usage) {
+            reportedUsage = {
+              prompt: chunk.usage.prompt_tokens ?? 0,
+              completion: chunk.usage.completion_tokens ?? 0,
+            };
+          }
+          const c = chunk.choices?.[0]?.delta?.content;
+          if (c) streamedChars += c.length;
+        } catch {
+          /* chunk parcial; ignora */
+        }
+      }
+    }
+  } catch {
+    /* cliente desconectou */
+  } finally {
+    res.end();
+    const promptTokens =
+      reportedUsage?.prompt ?? estimateTokens(JSON.stringify(body.messages ?? body));
+    const completionTokens =
+      reportedUsage?.completion ?? Math.ceil(streamedChars / 4);
+    chargeUsage(userId, provider, promptTokens, completionTokens).catch((err) =>
+      console.error("[animai-server] cobrança falhou:", err),
+    );
+  }
+}
+
 /** POST /api/ai/compact — atualiza o resumo da conversa (prd.txt §3.4). */
 export async function handleCompact(req: Request, res: Response): Promise<void> {
   const provider = await resolveProvider();

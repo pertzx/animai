@@ -20,7 +20,13 @@ import {
   requireAuth,
   signToken,
 } from "./auth.js";
-import { handleChat, handleCompact, handleSearch, handleUsage } from "./ai.js";
+import {
+  handleChat,
+  handleChatCompletions,
+  handleCompact,
+  handleSearch,
+  handleUsage,
+} from "./ai.js";
 import { createCheckoutSession, handleWebhook } from "./billing.js";
 
 const app = express();
@@ -529,6 +535,8 @@ app.put("/api/projects/:projectId", requireAuth, async (req, res) => {
 
 // ── IA (proxy + compactação + uso) ──────────────────────────────────
 app.post("/api/ai/chat", requireAuth, handleChat);
+// Passthrough OpenAI-compatible para o Agents SDK (rodando no navegador).
+app.post("/api/ai/v1/chat/completions", requireAuth, handleChatCompletions);
 app.post("/api/ai/compact", requireAuth, handleCompact);
 app.post("/api/ai/search", requireAuth, handleSearch);
 app.get("/api/ai/usage", requireAuth, handleUsage);

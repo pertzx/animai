@@ -86,6 +86,15 @@ export interface AiProjectContext {
     startSec: number;
     endSec: number;
     animation?: string;
+    /** Posição no palco (normalizado 0..1; 0.5,0.5 = centro). */
+    x: number;
+    y: number;
+    scale: number;
+    fontSize: number;
+    color: string;
+    align: string;
+    /** true = está sobreposto a outro texto no mesmo tempo (colisão). */
+    overlap?: boolean;
   }>;
   subtitles: Array<{
     id: string;
@@ -98,6 +107,8 @@ export interface AiProjectContext {
     mediaName: string;
     language?: string;
     segments: Array<{ start: number; end: number; text: string }>;
+    /** Presente quando a transcrição foi cortada (use get_transcript p/ tudo). */
+    truncated?: string;
   }>;
   /**
    * O que o usuário está fazendo AGORA no editor (prompt.txt item 1):
@@ -126,12 +137,56 @@ export interface AiClipSummary {
   fade?: { fadeIn: number; fadeOut: number };
   effects: Array<{ id: string; type: string; enabled?: boolean }>;
   keyframeCount: number;
+  /** Posição/escala/opacidade no palco (normalizado 0..1; 0.5,0.5 = centro). */
+  x: number;
+  y: number;
+  scale: number;
+  opacity: number;
 }
 
 const round = (n: number): number => Math.round(n * 1000) / 1000;
 
 const MAX_ENERGY_SEGMENTS = 30;
 const MAX_ONSCREEN_TEXTS = 20;
+/** Cap da transcrição no contexto (auditoria §4/M4): evita reenviar milhares
+ *  de tokens de fala todo turno. O texto completo fica sob demanda via a tool
+ *  get_transcript e a tool add_captions usa a transcrição real (não este corte). */
+const MAX_TRANSCRIPT_SEGMENTS = 40;
+/** Distância (0..1) abaixo da qual dois textos são considerados sobrepostos. */
+const OVERLAP_DIST = 0.08;
+
+/**
+ * Detecta textos que colidem: mesmo instante na timeline e centros próximos.
+ * Dá "visão" ao agente (campo overlap:true) sem ele ter que calcular — é a
+ * causa nº1 do "empilha tudo no mesmo lugar".
+ */
+function computeTextOverlaps(
+  texts: Array<{
+    id: string;
+    startTime: number;
+    duration: number;
+    transform: { position: { x: number; y: number } };
+  }>,
+): Set<string> {
+  const hit = new Set<string>();
+  for (let i = 0; i < texts.length; i++) {
+    for (let j = i + 1; j < texts.length; j++) {
+      const a = texts[i];
+      const b = texts[j];
+      const timeOverlap =
+        a.startTime < b.startTime + b.duration &&
+        b.startTime < a.startTime + a.duration;
+      const near =
+        Math.abs(a.transform.position.x - b.transform.position.x) < OVERLAP_DIST &&
+        Math.abs(a.transform.position.y - b.transform.position.y) < OVERLAP_DIST;
+      if (timeOverlap && near) {
+        hit.add(a.id);
+        hit.add(b.id);
+      }
+    }
+  }
+  return hit;
+}
 
 /**
  * Compacta a análise local para viver dentro do contexto sem estourar tokens:
@@ -198,6 +253,10 @@ function summarizeClip(clip: Clip, mediaName: string): AiClipSummary {
       enabled: e.enabled,
     })),
     keyframeCount: clip.keyframes.length,
+    x: round(clip.transform.position.x),
+    y: round(clip.transform.position.y),
+    scale: round(clip.transform.scale.x),
+    opacity: round(clip.transform.opacity),
   };
 }
 
@@ -225,6 +284,8 @@ export function buildProjectContext(project: Project): AiProjectContext {
   const semanticIds = new Map(
     Object.entries(semanticTimelines).map(([id, t]) => [id, t.counts]),
   );
+  // Colisões entre textos (para o campo overlap).
+  const textOverlaps = computeTextOverlaps(project.textClips ?? []);
 
   return {
     schemaVersion: AI_CONTEXT_SCHEMA_VERSION,
@@ -280,6 +341,13 @@ export function buildProjectContext(project: Project): AiProjectContext {
       startSec: round(t.startTime),
       endSec: round(t.startTime + t.duration),
       animation: t.animation?.preset,
+      x: round(t.transform.position.x),
+      y: round(t.transform.position.y),
+      scale: round(t.transform.scale.x),
+      fontSize: t.style.fontSize,
+      color: t.style.color,
+      align: t.style.textAlign,
+      ...(textOverlaps.has(t.id) ? { overlap: true } : {}),
     })),
     subtitles: project.timeline.subtitles.map((s) => ({
       id: s.id,
@@ -291,11 +359,16 @@ export function buildProjectContext(project: Project): AiProjectContext {
       mediaId: t.mediaId,
       mediaName: mediaNameById.get(t.mediaId) ?? "unknown",
       language: t.language,
-      segments: t.segments.map((s) => ({
+      segments: t.segments.slice(0, MAX_TRANSCRIPT_SEGMENTS).map((s) => ({
         start: round(s.start),
         end: round(s.end),
         text: s.text,
       })),
+      ...(t.segments.length > MAX_TRANSCRIPT_SEGMENTS
+        ? {
+            truncated: `mostrando ${MAX_TRANSCRIPT_SEGMENTS} de ${t.segments.length} segmentos — use get_transcript para o texto completo`,
+          }
+        : {}),
     })),
     editorState: buildEditorState(project, mediaNameById),
   };

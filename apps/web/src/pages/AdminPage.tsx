@@ -457,6 +457,58 @@ const BillingSettingsCard: React.FC = () => {
   );
 };
 
+/** Linha de um provider com edição inline do modelo (trocar para um mais forte). */
+const ProviderRow: React.FC<{
+  p: Provider;
+  update: (id: string, updates: Partial<Provider>) => Promise<void>;
+  remove: (id: string) => Promise<void>;
+}> = ({ p, update, remove }) => {
+  const [model, setModel] = useState(p.model);
+  const dirty = model.trim().length > 0 && model.trim() !== p.model;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded border border-border bg-bg-1 px-3 py-2 text-sm">
+      <span className="font-medium text-fg">{p.name}</span>
+      <input
+        className="w-52 rounded border border-border bg-bg-2 px-2 py-0.5 font-mono text-xs text-fg"
+        value={model}
+        onChange={(e) => setModel(e.target.value)}
+        title="Modelo do provider — troque para um mais forte e clique em Salvar modelo"
+      />
+      {dirty && (
+        <button
+          className="rounded bg-accent-soft px-2 py-0.5 text-xs text-accent"
+          onClick={() => void update(p.id, { model: model.trim() })}
+        >
+          Salvar modelo
+        </button>
+      )}
+      <span className="max-w-[12rem] truncate text-xs text-fg-muted">
+        {p.baseUrl}
+      </span>
+      <div className="ml-auto flex items-center gap-2 text-xs">
+        <button
+          className={`rounded px-2 py-0.5 ${p.isDefault ? "bg-accent-soft text-accent" : "bg-bg-3 text-fg-muted"}`}
+          onClick={() => void update(p.id, { isDefault: true })}
+        >
+          {p.isDefault ? "Padrão" : "Tornar padrão"}
+        </button>
+        <button
+          className={`rounded px-2 py-0.5 ${p.enabled ? "bg-accent-soft text-accent" : "bg-bg-3 text-fg-muted"}`}
+          onClick={() => void update(p.id, { enabled: !p.enabled })}
+        >
+          {p.enabled ? "Ativo" : "Inativo"}
+        </button>
+        <button
+          className="text-fg-muted hover:text-status-error"
+          onClick={() => void remove(p.id)}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ProvidersTab: React.FC = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -602,36 +654,7 @@ const ProvidersTab: React.FC = () => {
       ) : (
         <div className="space-y-2">
           {providers.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center gap-3 rounded border border-border bg-bg-1 px-3 py-2 text-sm"
-            >
-              <span className="font-medium text-fg">{p.name}</span>
-              <span className="text-xs text-fg-muted">{p.model}</span>
-              <span className="max-w-[14rem] truncate text-xs text-fg-muted">
-                {p.baseUrl}
-              </span>
-              <div className="ml-auto flex items-center gap-2 text-xs">
-                <button
-                  className={`rounded px-2 py-0.5 ${p.isDefault ? "bg-accent-soft text-accent" : "bg-bg-3 text-fg-muted"}`}
-                  onClick={() => void update(p.id, { isDefault: true })}
-                >
-                  {p.isDefault ? "Padrão" : "Tornar padrão"}
-                </button>
-                <button
-                  className={`rounded px-2 py-0.5 ${p.enabled ? "bg-accent-soft text-accent" : "bg-bg-3 text-fg-muted"}`}
-                  onClick={() => void update(p.id, { enabled: !p.enabled })}
-                >
-                  {p.enabled ? "Ativo" : "Inativo"}
-                </button>
-                <button
-                  className="text-fg-muted hover:text-status-error"
-                  onClick={() => void remove(p.id)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
+            <ProviderRow key={p.id} p={p} update={update} remove={remove} />
           ))}
           {providers.length === 0 && (
             <p className="py-4 text-center text-xs text-fg-muted">
