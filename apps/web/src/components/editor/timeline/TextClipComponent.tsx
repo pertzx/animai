@@ -94,12 +94,12 @@ export const TextClipComponent: React.FC<TextClipComponentProps> = ({
       setIsDragging(false);
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [isDragging, textClip.id, textClip.duration, pixelsPerSecond, dragOffset, onMoveClip, snapSettings, playheadPosition]);
 
@@ -150,12 +150,12 @@ export const TextClipComponent: React.FC<TextClipComponentProps> = ({
       document.body.style.userSelect = "";
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [isTrimming, textClip.id, pixelsPerSecond, onTrim]);
 
@@ -167,7 +167,7 @@ export const TextClipComponent: React.FC<TextClipComponentProps> = ({
         <div
           ref={clipRef}
           onClick={handleClick}
-          onMouseDown={handleMouseDown}
+          data-tl-drag onPointerDown={handleMouseDown}
           className={`absolute top-1 bottom-1 rounded-lg overflow-hidden cursor-grab group ${
             isDragging ? "cursor-grabbing opacity-75" : ""
           } ${
@@ -187,7 +187,7 @@ export const TextClipComponent: React.FC<TextClipComponentProps> = ({
               isSelected ? "opacity-100 bg-amber-400" : "opacity-0 group-hover:opacity-100 hover:bg-amber-400/50"
             }`}
             style={{ borderRadius: "6px 0 0 6px" }}
-            onMouseDown={(e) => handleTrimStart(e, "left")}
+            data-tl-drag onPointerDown={(e) => handleTrimStart(e, "left")}
           >
             {isSelected && <div className="w-0.5 h-3 bg-amber-900/60 rounded-full" />}
           </div>
@@ -196,7 +196,7 @@ export const TextClipComponent: React.FC<TextClipComponentProps> = ({
               isSelected ? "opacity-100 bg-amber-400" : "opacity-0 group-hover:opacity-100 hover:bg-amber-400/50"
             }`}
             style={{ borderRadius: "0 6px 6px 0" }}
-            onMouseDown={(e) => handleTrimStart(e, "right")}
+            data-tl-drag onPointerDown={(e) => handleTrimStart(e, "right")}
           >
             {isSelected && <div className="w-0.5 h-3 bg-amber-900/60 rounded-full" />}
           </div>

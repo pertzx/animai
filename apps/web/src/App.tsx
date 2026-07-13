@@ -2,7 +2,6 @@ import { useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { ToastContainer } from "./components/Toast";
 import { ScriptViewDialog } from "./components/editor/ScriptViewDialog";
 import { SearchModal } from "./components/editor/SearchModal";
-import { MobileBlocker } from "./components/MobileBlocker";
 import { WelcomeScreen } from "./components/welcome";
 import { RecoveryDialog } from "./components/welcome/RecoveryDialog";
 import { SharePage } from "./pages/SharePage";
@@ -200,7 +199,6 @@ function App() {
   return (
     <TooltipProvider>
       <div className="h-screen w-screen bg-background text-text-primary overflow-hidden">
-        <MobileBlocker />
         {isSharePage ? (
           <SharePage shareId={params.shareId!} />
         ) : showWelcome ? (

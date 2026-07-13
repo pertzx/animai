@@ -10,6 +10,8 @@ import { KeyframeEditorPanel } from "./KeyframeEditorPanel";
 import { AudioMixer } from "../audio-mixer";
 import { KeyboardShortcutsOverlay } from "./KeyboardShortcutsOverlay";
 import { PanelErrorBoundary } from "../ErrorBoundary";
+import { MobileEditorLayout } from "./MobileEditorLayout";
+import { useIsMobile } from "../../hooks/use-breakpoint";
 import { SpotlightTour, MoGraphTour } from "./tour";
 import { useProjectStore } from "../../stores/project-store";
 import { useUIStore } from "../../stores/ui-store";
@@ -306,6 +308,9 @@ export const EditorInterface: React.FC = () => {
     [],
   );
 
+  // No mobile, o editor usa um shell de view única (bottom-nav) em vez do grid.
+  const isMobile = useIsMobile();
+
   // ── Layout state (resizable columns and timeline band) ──────────
   const rootRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<ResizeTarget | null>(null);
@@ -417,6 +422,11 @@ export const EditorInterface: React.FC = () => {
     gridTemplateAreas:
       "'media mh stage ih inspector' 'th th th th th' 'timeline timeline timeline timeline timeline'",
   };
+
+  // Mobile: shell de view única (todos os hooks acima já rodaram).
+  if (isMobile) {
+    return <MobileEditorLayout />;
+  }
 
   return (
     <div className="flex h-full w-full">

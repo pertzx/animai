@@ -57,11 +57,11 @@ export const KeyframeMarker: React.FC<KeyframeMarkerProps> = ({
 
   useEffect(() => {
     if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("pointermove", handleMouseMove);
+      window.addEventListener("pointerup", handleMouseUp);
       return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handleMouseMove);
+        window.removeEventListener("pointerup", handleMouseUp);
       };
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
@@ -92,7 +92,7 @@ export const KeyframeMarker: React.FC<KeyframeMarkerProps> = ({
         left: xPosition,
         transform: `translate(-50%, -50%) rotate(45deg) ${isDragging ? "scale(1.25)" : ""}`,
       }}
-      onMouseDown={handleMouseDown}
+      data-tl-drag onPointerDown={handleMouseDown}
       onContextMenu={handleContextMenu}
       onDoubleClick={handleDoubleClick}
     >

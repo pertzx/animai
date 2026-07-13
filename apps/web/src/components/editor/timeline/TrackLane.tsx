@@ -215,12 +215,12 @@ export const TrackLane: React.FC<TrackLaneProps> = ({
       document.body.style.userSelect = "";
     };
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("pointermove", handleMouseMove);
+    document.addEventListener("pointerup", handleMouseUp);
 
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("pointermove", handleMouseMove);
+      document.removeEventListener("pointerup", handleMouseUp);
     };
   }, [isResizing, track.id, onResizeTrack]);
 
@@ -291,7 +291,7 @@ export const TrackLane: React.FC<TrackLaneProps> = ({
         className={`absolute bottom-0 left-0 right-0 h-1 cursor-row-resize hover:bg-primary/50 transition-colors z-10 ${
           isResizing ? "bg-primary" : ""
         }`}
-        onMouseDown={handleResizeStart}
+        data-tl-drag onPointerDown={handleResizeStart}
       />
       {isExpanded && clipsWithKeyframes.length > 0 && (
         <div className="absolute left-0 right-0" style={{ top: trackHeight }}>

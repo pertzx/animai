@@ -381,12 +381,12 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       onSelect(clip.id, e.shiftKey || e.metaKey);
     };
 
-    window.addEventListener("mousemove", handlePendingMouseMove);
-    window.addEventListener("mouseup", handlePendingMouseUp);
+    window.addEventListener("pointermove", handlePendingMouseMove);
+    window.addEventListener("pointerup", handlePendingMouseUp);
 
     return () => {
-      window.removeEventListener("mousemove", handlePendingMouseMove);
-      window.removeEventListener("mouseup", handlePendingMouseUp);
+      window.removeEventListener("pointermove", handlePendingMouseMove);
+      window.removeEventListener("pointerup", handlePendingMouseUp);
     };
   }, [isPendingDrag, clip.id, onSelect]);
 
@@ -551,8 +551,8 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       closeGroup();
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
 
     return () => {
       if (animationFrameId !== null) {
@@ -562,8 +562,8 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
         cancelAnimationFrame(moveCommitRafRef.current);
         moveCommitRafRef.current = null;
       }
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
       closeGroup();
     };
   }, [
@@ -615,12 +615,12 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       document.body.style.cursor = "";
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [isTrimming, trimEdge, clip.id, pixelsPerSecond, onTrimClip]);
 
@@ -636,7 +636,7 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
         <div
           ref={clipRef}
           onClick={handleClick}
-          onMouseDown={handleMouseDown}
+          data-tl-drag onPointerDown={handleMouseDown}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -827,7 +827,7 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       {(isVideo || isImage || isAudio) && onTrimClip && (
         <>
           <div
-            onMouseDown={handleTrimMouseDown("left")}
+            data-tl-drag onPointerDown={handleTrimMouseDown("left")}
             className={`absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-20 flex items-center justify-center transition-opacity ${
               isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             } ${isSelected ? "bg-primary" : isAudio ? "hover:bg-blue-400/50" : isVideo ? "hover:bg-green-400/50" : "hover:bg-purple-400/50"}`}
@@ -839,7 +839,7 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
             )}
           </div>
           <div
-            onMouseDown={handleTrimMouseDown("right")}
+            data-tl-drag onPointerDown={handleTrimMouseDown("right")}
             className={`absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-20 flex items-center justify-center transition-opacity ${
               isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             } ${isSelected ? "bg-primary" : isAudio ? "hover:bg-blue-400/50" : isVideo ? "hover:bg-green-400/50" : "hover:bg-purple-400/50"}`}

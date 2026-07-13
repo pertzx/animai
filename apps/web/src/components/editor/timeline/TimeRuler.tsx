@@ -190,13 +190,13 @@ export const TimeRuler: React.FC<TimeRulerProps> = ({
       onScrubEnd?.();
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [isDragging, getTimeFromEvent, onSeek, onScrubEnd, safePixelsPerSecond]);
 
@@ -206,7 +206,7 @@ export const TimeRuler: React.FC<TimeRulerProps> = ({
       className={`h-[26px] border-b border-border flex items-end relative bg-bg-1 select-none ${
         isDragging ? "cursor-grabbing" : "cursor-pointer"
       }`}
-      onMouseDown={handleMouseDown}
+      data-tl-drag onPointerDown={handleMouseDown}
       style={{ cursor: isDragging ? "grabbing" : "pointer" }}
     >
       {ticks.map((tick) => (

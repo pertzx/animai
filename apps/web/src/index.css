@@ -234,3 +234,27 @@
   pointer-events: none;
   font-weight: 500;
 }
+
+/* ============================================================
+   Mobile / touch (fase de responsividade)
+   ============================================================ */
+
+/* Elementos arrastáveis da timeline (clip, playhead, trim, keyframe):
+   o toque ARRASTA em vez de rolar/dar zoom na página. */
+[data-tl-drag] {
+  touch-action: none;
+}
+
+/* Não deixar o iOS/Android aumentar a fonte sozinho em landscape. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Utilitário de safe-area (notch) para barras fixas. */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
