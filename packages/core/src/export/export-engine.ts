@@ -379,10 +379,12 @@ export class ExportEngine {
         bitrate: fullSettings.bitrate ? fullSettings.bitrate * 1000 : QUALITY_MEDIUM,
         keyFrameInterval:
           fullSettings.keyframeInterval / fullSettings.frameRate,
-        // Usa o encoder de HARDWARE quando disponível (Intel QuickSync, etc.) —
-        // ordens de magnitude mais rápido que software num dual-core. Cai para
-        // software sozinho se não houver hardware. Antes forçava software.
-        hardwareAcceleration: "prefer-hardware",
+        // "no-preference": o navegador usa o encoder de HARDWARE quando ele
+        // suporta a config (rápido) e cai para SOFTWARE sozinho quando não —
+        // sem quebrar. "prefer-hardware" forçava hardware-only e falhava
+        // ("encoder configuration not supported") em chips sem suporte à config;
+        // "prefer-software" (o original) nunca usava hardware e era lento.
+        hardwareAcceleration: "no-preference",
       });
       const audioSource = new AudioBufferSource({
         codec: audioCodecResult.codec as "aac" | "opus" | "mp3",
