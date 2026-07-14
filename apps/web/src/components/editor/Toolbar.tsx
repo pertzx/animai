@@ -649,12 +649,12 @@ export const Toolbar: React.FC = () => {
   ];
 
   return (
-    <header className="h-topbar grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 px-3 bg-bg border-b border-border shrink-0 z-30 relative max-sm:flex max-sm:gap-2 max-sm:overflow-x-auto max-sm:px-2">
+    <header className="h-topbar grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 px-3 bg-bg border-b border-border shrink-0 z-30 relative max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-1 max-sm:px-2">
       {/* ─── Left: window dots + autosave ─────────────────────── */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <button
           onClick={() => navigate("welcome")}
-          className="flex items-center gap-1.5 pr-1.5"
+          className="flex items-center gap-1.5 pr-1.5 shrink-0"
           title="Back to home"
         >
           <span className="w-[11px] h-[11px] rounded-full bg-[oklch(0.7_0.18_25)]" />
@@ -662,7 +662,7 @@ export const Toolbar: React.FC = () => {
           <span className="w-[11px] h-[11px] rounded-full bg-[oklch(0.7_0.15_145)]" />
         </button>
 
-        <span className="text-[11px] text-fg-3 flex items-center gap-1.5">
+        <span className="text-[11px] text-fg-3 items-center gap-1.5 hidden sm:inline-flex">
           <span className="w-[5px] h-[5px] rounded-full bg-accent" />
           {exportState.isExporting
             ? `Exporting… ${Math.round(exportState.progress)}%`
@@ -671,7 +671,7 @@ export const Toolbar: React.FC = () => {
       </div>
 
       {/* ─── Center: project name ────────────────────────────── */}
-      <div className="flex items-center gap-1.5 text-[12.5px] font-medium tracking-tight">
+      <div className="flex items-center gap-1.5 text-[12.5px] font-medium tracking-tight min-w-0 max-sm:flex-1 max-sm:max-w-none">
         <input
           value={projectNameDraft}
           onChange={(e) => setProjectNameDraft(e.target.value)}
@@ -686,19 +686,19 @@ export const Toolbar: React.FC = () => {
           }}
           size={Math.max(projectNameDraft.length, 6)}
           spellCheck={false}
-          className="bg-transparent border-0 text-center font-medium text-[12.5px] tracking-tight text-fg px-2 py-0.5 rounded min-w-[60px] focus:bg-bg-2 focus:outline-none"
+          className="bg-transparent border-0 text-center font-medium text-[12.5px] tracking-tight text-fg px-2 py-0.5 rounded min-w-[60px] focus:bg-bg-2 focus:outline-none max-sm:min-w-0 max-sm:max-w-[140px] max-sm:truncate text-center"
         />
         <ProjectSwitcher />
       </div>
 
       {/* ─── Right: undo/redo, history, comments, pro, export ── */}
-      <div className="flex items-center justify-end gap-1.5">
-        {/* Quick search (preserved from existing flow) */}
+      <div className="flex items-center justify-end gap-1.5 min-w-0">
+        {/* Quick search (preserved from existing flow) — hidden on mobile, moved to Panels dropdown */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={() => openModal("search")}
-              className="w-[26px] h-[26px] grid place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
+              className="hidden sm:grid w-[26px] h-[26px] place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
               data-tip="Search (⌘K)"
             >
               <Search size={14} />
@@ -707,12 +707,12 @@ export const Toolbar: React.FC = () => {
           <TooltipContent>Search tools, effects, or ask AI… (⌘K)</TooltipContent>
         </Tooltip>
 
-        {/* Undo / Redo */}
+        {/* Undo / Redo — hidden on mobile, moved to Panels dropdown */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={handleUndo}
-              className="w-[26px] h-[26px] grid place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
+              className="hidden sm:grid w-[26px] h-[26px] place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
             >
               <Undo2 size={14} />
             </button>
@@ -724,7 +724,7 @@ export const Toolbar: React.FC = () => {
           <TooltipTrigger asChild>
             <button
               onClick={handleRedo}
-              className="w-[26px] h-[26px] grid place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
+              className="hidden sm:grid w-[26px] h-[26px] place-items-center rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors"
             >
               <Redo2 size={14} />
             </button>
@@ -732,7 +732,7 @@ export const Toolbar: React.FC = () => {
           <TooltipContent>Redo (⇧⌘Z)</TooltipContent>
         </Tooltip>
 
-                <div className="w-px h-4 bg-border mx-1" />
+                <div className="hidden sm:block w-px h-4 bg-border mx-1 shrink-0" />
 
         {/* Desktop: 4 individual panel toggles. Mobile: hidden, replaced by
             a single Panels dropdown that groups all 4 to save horizontal space. */}
@@ -806,10 +806,24 @@ export const Toolbar: React.FC = () => {
           <DropdownMenu open={panelsDropdownOpen} onOpenChange={setPanelsDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-1 px-2 h-[26px] rounded-md text-fg-2 hover:bg-hover hover:text-fg transition-colors text-[11px]">
-                Panels<ChevronDown size={12} className="ml-0.5" />
+                <MoreHorizontal size={16} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-40">
+            <DropdownMenuContent align="end" className="min-w-48 max-h-[80vh] overflow-y-auto">
+              <DropdownMenuItem onClick={() => { openModal("search"); setPanelsDropdownOpen(false); }}>
+                <Search size={13} className="mr-2" />Search
+                <span className="ml-auto text-[10px] text-fg-muted">⌘K</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { handleUndo(); setPanelsDropdownOpen(false); }}>
+                <Undo2 size={13} className="mr-2" />Undo
+                <span className="ml-auto text-[10px] text-fg-muted">⌘Z</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { handleRedo(); setPanelsDropdownOpen(false); }}>
+                <Redo2 size={13} className="mr-2" />Redo
+                <span className="ml-auto text-[10px] text-fg-muted">⇧⌘Z</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => { setIsHistoryOpen(v => !v); setPanelsDropdownOpen(false); }}>
                 <History size={13} className="mr-2" />History
                 {isHistoryOpen && <Check size={12} className="ml-auto" />}
@@ -822,19 +836,36 @@ export const Toolbar: React.FC = () => {
                 <Music size={13} className="mr-2" />Audio Mixer
                 {panels.audioMixer?.visible && <Check size={12} className="ml-auto" />}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => { useUIStore.getState().openModal("scriptView"); setPanelsDropdownOpen(false); }}>
                 <MessageSquare size={13} className="mr-2" />Comments
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { toggleTheme(); setPanelsDropdownOpen(false); }}>
+                {themeMode === "light" ? <Sun size={13} className="mr-2" /> : themeMode === "dark" ? <Moon size={13} className="mr-2" /> : <SunMoon size={13} className="mr-2" />}
+                Theme: {themeMode}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { openSettings(); setPanelsDropdownOpen(false); }}>
+                <Settings size={13} className="mr-2" />Settings & API keys
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setIsRecorderOpen(true); setPanelsDropdownOpen(false); }}>
+                <Circle size={13} className="fill-current text-status-error mr-2" />Screen recorder
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { handleStartTour(); setPanelsDropdownOpen(false); }}>
+                <Play size={13} className="mr-2" />Editor tour
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { handleStartMoGraphTour(); setPanelsDropdownOpen(false); }}>
+                <Sparkles size={13} className="text-purple-400 mr-2" />Animation tour
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}<div className="w-px h-4 bg-border mx-1" />
+        )}<div className="hidden sm:block w-px h-4 bg-border mx-1" />
 
-        {/* Pro pill — opens more menu (theme, settings, tours, recorder) */}
+        {/* Pro pill — opens more menu (theme, settings, tours, recorder). Hidden on mobile (items merged into the Panels/More dropdown above). */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-fg-2 hover:bg-hover hover:text-fg transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-fg-2 hover:bg-hover hover:text-fg transition-colors"
             >
               <Star size={14} />
             </button>

@@ -6,8 +6,10 @@
  * abaixo, o painel da aba selecionada (Mídia · Timeline · Ajustes · IA), com uma
  * bottom-nav estilo app. Os painéis são os MESMOS componentes do desktop
  * (conectados às stores), então nada é duplicado.
+ *
+ * Fase 2: splitter arrastável entre preview e conteúdo, toolbar mobile.
  */
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { Clapperboard, LayoutList, SlidersHorizontal, Sparkles } from "lucide-react";
 import { Toolbar } from "./Toolbar";
 import { AssetsPanel } from "./AssetsPanel";
@@ -26,22 +28,86 @@ const TABS: Array<{ id: MobileTab; label: string; Icon: typeof LayoutList }> = [
   { id: "chat", label: "IA", Icon: Sparkles },
 ];
 
+const MIN_PREVIEW = 15; // dvh
+const MAX_PREVIEW = 70; // dvh
+const DEFAULT_PREVIEW = 38; // dvh
+
 export const MobileEditorLayout: React.FC = () => {
   const [tab, setTab] = useState<MobileTab>("timeline");
+  const [previewVh, setPreviewVh] = useState(DEFAULT_PREVIEW);
+  const dragging = useRef(false);
+  const dragStartY = useRef(0);
+  const dragStartVh = useRef(DEFAULT_PREVIEW);
+
+  const startDrag = useCallback((e: React.PointerEvent) => {
+    // Only handle primary touch/pen (not mouse scroll)
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragging.current = true;
+    dragStartY.current = e.clientY;
+    dragStartVh.current = previewVh;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, [previewVh]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    // movementY > 0 = drag down = smaller preview
+    const deltaY = e.clientY - dragStartY.current;
+    const deltaVh = (deltaY / window.innerHeight) * 100;
+    const newVh = Math.min(MAX_PREVIEW, Math.max(MIN_PREVIEW, dragStartVh.current - deltaVh));
+    setPreviewVh(newVh);
+  }, []);
+
+  const endDrag = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+  }, []);
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-bg text-fg font-sans">
+    <div
+      className="flex h-full w-full flex-col overflow-hidden bg-bg text-fg font-sans"
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      {/* Toolbar no topo (versão mobile abaixo de 768px via CSS do Toolbar.tsx) */}
       <Toolbar />
 
-      {/* Palco sempre visível no topo. dvh (não vh) para não estourar a altura
-          visível no navegador do celular. */}
-      <div className="shrink-0 bg-stage-bg" style={{ height: "38dvh" }}>
+      {/* Palco com splitter arrastável */}
+      <div
+        className="shrink-0 bg-stage-bg relative"
+        style={{ height: `${previewVh}dvh` }}
+      >
         <PanelErrorBoundary name="Stage">
           <Preview />
         </PanelErrorBoundary>
+
+        {/* Splitter: barra horizontal que o usuário arrasta para redimensionar
+            o preview vs o conteúdo abaixo. Touch-action:none para não competir
+            com o scroll. Visual: linha fina com alça central. */}
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize preview area"
+          title="Drag to resize preview"
+          onPointerDown={startDrag}
+          className="absolute bottom-0 left-0 right-0 z-10 cursor-row-resize select-none"
+          style={{ touchAction: "none" }}
+        >
+          {/* Hit area expandida (44px) com linha visual fina (4px) */}
+          <div className="absolute inset-x-0 bottom-0 h-6 flex items-center justify-center">
+            {/* Linha visual */}
+            <div className="w-full h-1 bg-border rounded-full" />
+            {/* Alça central */}
+            <div className="absolute left-1/2 -translate-x-1/2 w-8 h-3 bg-bg-2 border border-border rounded-md flex items-center justify-center">
+              <div className="w-4 h-0.5 bg-fg-muted rounded-full" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Conteúdo da aba (tela cheia abaixo do palco). */}
+      {/* Conteúdo da aba (tela cheia abaixo do palco). O flex-1 garante que
+          ocupa todo o espaço restante. */}
       <div className="min-h-0 flex-1 overflow-hidden border-t border-border bg-bg-1">
         {tab === "media" && (
           <PanelErrorBoundary name="Media">

@@ -406,16 +406,49 @@ export const Timeline: React.FC = () => {
   }, [clearSelection]);
 
   const handleBoxSelectionStart = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
+    (e: React.PointerEvent) => {
+      // Only left mouse button OR pen/touch long-press activates box-selection
+      if (e.button !== 0 && e.pointerType === "mouse") return;
       if ((e.target as HTMLElement).closest(".clip-component")) return;
+
+      // For touch, use long-press (300ms) before box-selection, so the user
+      // can scroll the timeline on touch (the container has touch-action pan).
+      // Without long-press, an immediate tap would compete with scroll.
+      if (e.pointerType === "touch") {
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const timer = window.setTimeout(() => {
+          const rect = tracksRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          const x = startX - rect.left + (tracksRef.current?.scrollLeft ?? 0);
+          const y = startY - rect.top + (tracksRef.current?.scrollTop ?? 0);
+          setIsBoxSelecting(true);
+          setSelectionBox({ startX: x, startY: y, currentX: x, currentY: y });
+        }, 300);
+        // Cancel if finger moved (likely scroll) or lifted before threshold
+        const cancelMove = (ev: PointerEvent) => {
+          if (Math.abs(ev.clientX - startX) > 8 || Math.abs(ev.clientY - startY) > 8) {
+            window.clearTimeout(timer);
+            window.removeEventListener("pointermove", cancelMove);
+            window.removeEventListener("pointerup", cancelUp);
+          }
+        };
+        const cancelUp = () => {
+          window.clearTimeout(timer);
+          window.removeEventListener("pointermove", cancelMove);
+          window.removeEventListener("pointerup", cancelUp);
+        };
+        window.addEventListener("pointermove", cancelMove);
+        window.addEventListener("pointerup", cancelUp);
+        return;
+      }
 
       const rect = tracksRef.current?.getBoundingClientRect();
       if (!rect) return;
 
       // Convert viewport coordinates to timeline coordinates by accounting for scroll position
-      const x = e.clientX - rect.left + scrollX;
-      const y = e.clientY - rect.top + scrollY;
+      const x = e.clientX - rect.left + (tracksRef.current?.scrollLeft ?? scrollX);
+      const y = e.clientY - rect.top + (tracksRef.current?.scrollTop ?? scrollY);
 
       setIsBoxSelecting(true);
       setSelectionBox({
@@ -1063,6 +1096,7 @@ export const Timeline: React.FC = () => {
           <div
             ref={tracksRef}
             className="flex-1 bg-background relative overflow-auto custom-scrollbar"
+            style={{ touchAction: "pan-x pan-y" }}
             onScroll={(e) => {
               setScrollX(e.currentTarget.scrollLeft);
               setScrollY(e.currentTarget.scrollTop);
