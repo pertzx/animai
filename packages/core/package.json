@@ -16,6 +16,7 @@
     }
   },
   "scripts": {
+    "dev": "node src/index.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit",

@@ -3,7 +3,7 @@ import type { TtsProvider } from "../../../../stores/settings-store";
 import { useSettingsStore } from "../../../../stores/settings-store";
 import { isSessionUnlocked, getSecret } from "../../../../services/secure-storage";
 import { apiFetch } from "../../../../services/api-proxy";
-import { OPENREEL_TTS_URL } from "../../../../config/api-endpoints";
+import { API_URL } from "../../../../config/api-endpoints";
 import type { ElevenLabsVoice, ElevenLabsModel } from "../tts-types";
 import { FALLBACK_MODELS, ENHANCE_SYSTEM_PROMPT } from "../tts-constants";
 
@@ -150,9 +150,12 @@ export function useElevenLabsApi(options: UseElevenLabsApiOptions): UseElevenLab
   }, [provider]);
 
   const generateWithPiper = useCallback(async (inputText: string, voice: string, spd: number, signal?: AbortSignal): Promise<Blob> => {
-    const response = await fetch(`${OPENREEL_TTS_URL}/tts`, {
+    const response = await fetch(`${API_URL}/api/tts/synthesize`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-proxy-api-key": (await getSecret("elevenlabs")) ?? "",
+      },
       body: JSON.stringify({ text: inputText, voice, speed: spd }),
       signal,
     });
@@ -160,7 +163,7 @@ export function useElevenLabsApi(options: UseElevenLabsApiOptions): UseElevenLab
     if (!response.ok) {
       if (response.status === 429) {
         throw new Error(
-          "Rate limit reached. Please wait a minute. Free service is limited to 10 req/min.",
+          "Rate limit reached. Please wait a minute.",
         );
       }
       const errorData = await response.json().catch(() => ({}));

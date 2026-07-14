@@ -91,10 +91,6 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
     clipY: 0,
     scrollTop: 0,
   });
-  // scrollLeft captured at drag start. Used by handleMouseMove to stay in
-  // the same coordinate space even if the playhead-follow auto-scroll or
-  // a manual scroll changes the container's scrollLeft mid-drag.
-  const dragStartScrollXRef = useRef(0);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const pendingDropRef = useRef<{ time: number; targetTrackId?: string }>({ time: 0 });
   const dragPendingRef = useRef<{ active: boolean; startX: number; startY: number }>({
@@ -133,25 +129,18 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
     if (track.locked || isTrimming) return;
     e.stopPropagation();
 
-    // Use the timeline scroll container (static, no transform) instead of
-    // clipRef.parentElement, which is translated by −scrollX. Reading the
-    // parent's rect worked while scrollX was stable, but the playhead-follow
-    // auto-scroll (Timeline.tsx ~248) and onScroll fire during a drag and
-    // shift parent's rect.left, making the clip jump by the scrolled delta.
-    const tlEl = timelineRef.current;
-    if (!tlEl || !clipRef.current) return;
-    const rect = tlEl.getBoundingClientRect();
+    const rect = clipRef.current?.parentElement?.getBoundingClientRect();
+    const clipRect = clipRef.current?.getBoundingClientRect();
+    if (!rect || !clipRect) return;
 
-    const scrollXAtDragStart = tlEl.scrollLeft;
-    const clickX = e.clientX - rect.left + scrollXAtDragStart;
+    const clickX = e.clientX - rect.left;
     const clipStartX = clip.startTime * pixelsPerSecond;
     setDragOffset(clickX - clipStartX);
-    dragStartScrollXRef.current = scrollXAtDragStart;
 
     dragStartRef.current = {
       mouseY: e.clientY,
-      clipY: 0,
-      scrollTop: tlEl.scrollTop || 0,
+      clipY: clipRect.top - rect.top,
+      scrollTop: timelineRef.current?.scrollTop || 0,
     };
     mousePositionRef.current = { x: e.clientX, y: e.clientY };
     dragPendingRef.current = { active: true, startX: e.clientX, startY: e.clientY };
@@ -411,10 +400,6 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       multiDragSnapshotRef.current.length > 0 ? "Move clips" : "Move clip",
     );
 
-    // Disable the playhead-follow auto-scroll while dragging so the view
-    // doesn't page-shift under the cursor mid-drag.
-    useTimelineStore.getState().setDraggingClip(true);
-
     let animationFrameId: number | null = null;
 
     const scrollLoop = () => {
@@ -456,17 +441,11 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       mousePositionRef.current.x = e.clientX;
       mousePositionRef.current.y = e.clientY;
 
-      const tlEl = timelineRef.current;
-      if (!tlEl) return;
-      const rect = tlEl.getBoundingClientRect();
-      const timelineRect = rect;
+      const rect = clipRef.current?.parentElement?.getBoundingClientRect();
+      const timelineRect = timelineRef.current?.getBoundingClientRect();
+      if (!rect || !timelineRect) return;
 
-      // Reuse the same dragOffset captured at mousedown (which is in
-      // "absolute" timeline content coordinates, including scrollX at drag
-      // start). Here we add the *current* scrollLeft so the clip stays
-      // anchored to the cursor regardless of any scroll that happened
-      // since mousedown.
-      const x = e.clientX - rect.left + tlEl.scrollLeft - dragOffset;
+      const x = e.clientX - rect.left - dragOffset;
       const rawTime = Math.max(0, x / pixelsPerSecond);
 
       const dragSnapSettings = { ...snapSettings, snapToPlayhead: false };
@@ -586,7 +565,6 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
       window.removeEventListener("pointermove", handleMouseMove);
       window.removeEventListener("pointerup", handleMouseUp);
       closeGroup();
-      useTimelineStore.getState().setDraggingClip(false);
     };
   }, [
     isDragging,
@@ -662,7 +640,7 @@ export const ClipComponent: React.FC<ClipComponentProps> = ({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`clip-component group absolute top-1 bottom-1 rounded-lg overflow-hidden shadow-sm ${
+          className={`group absolute top-1 bottom-1 rounded-lg overflow-hidden shadow-sm ${
             isDragging
               ? `cursor-grabbing z-50 ${isInvalidDrop ? "opacity-50 ring-2 ring-red-500 border-red-500" : "opacity-90 shadow-xl"}`
               : "cursor-grab"

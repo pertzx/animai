@@ -95,6 +95,55 @@ const projectMetaSchema = new Schema(
 );
 projectMetaSchema.index({ userId: 1, projectId: 1 }, { unique: true });
 
+/** Compartilhamento público de projeto (prd.txt §6.2 — link compartilhável). */
+const shareSchema = new Schema(
+  {
+    shareId: { type: String, required: true, unique: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    filename: { type: String, required: true },
+    size: { type: Number, required: true },
+    /** Timestamp ms — o link expira após este momento. */
+    expiresAt: { type: Number, required: true },
+    /** URL de download no nosso próprio server (blob local ou R2-compatible). */
+    downloadPath: { type: String, required: true },
+  },
+  { timestamps: true },
+);
+shareSchema.index({ userId: 1, createdAt: -1 });
+
+/** Template community (uploaded by users, browsable by all). */
+const cloudTemplateSchema = new Schema(
+  {
+    templateId: { type: String, required: true, unique: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    author: { type: String, default: "Anonymous" },
+    name: { type: String, required: true },
+    description: { type: String, default: "" },
+    /** Template payload — same shape as @openreel/core Template. */
+    payload: { type: Schema.Types.Mixed, required: true },
+    scriptable: { type: Boolean, default: false },
+    published: { type: Boolean, default: false },
+    premium: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+cloudTemplateSchema.index({ published: 1, createdAt: -1 });
+
+/** Highlight extractions — stored so the AI can use them in context. */
+const shareHighlightSchema = new Schema(
+  {
+    shareId: { type: String, required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    start: { type: Number, required: true },
+    end: { type: Number, required: true },
+    score: { type: Number, required: true },
+    title: { type: String, default: "" },
+    reason: { type: String, default: "" },
+  },
+  { timestamps: true },
+);
+shareHighlightSchema.index({ shareId: 1 });
+
 export type UserDoc = InferSchemaType<typeof userSchema>;
 export type CatalogItemDoc = InferSchemaType<typeof catalogItemSchema>;
 export type AiProviderDoc = InferSchemaType<typeof aiProviderSchema>;
@@ -105,6 +154,9 @@ export const AiProvider = mongoose.model("AiProvider", aiProviderSchema);
 export const ProjectMeta = mongoose.model("ProjectMeta", projectMetaSchema);
 export const Plan = mongoose.model("Plan", planSchema);
 export const Setting = mongoose.model("Setting", settingSchema);
+export const Share = mongoose.model("Share", shareSchema);
+export const CloudTemplate = mongoose.model("CloudTemplate", cloudTemplateSchema);
+export const ShareHighlight = mongoose.model("ShareHighlight", shareHighlightSchema);
 
 export interface BillingSettings {
   /** Multiplicador de margem: custoCalculado = custoReal × multiplier. */

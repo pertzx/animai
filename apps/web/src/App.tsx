@@ -25,6 +25,10 @@ const EditorInterface = lazy(() =>
   }))
 );
 
+const ImagePage = lazy(() =>
+  import("./pages/ImagePage").then((m) => ({ default: m.default }))
+);
+
 const LoadingSpinner: React.FC<{ message: string }> = ({ message }) => (
   <div className="h-screen w-screen bg-background flex flex-col items-center justify-center">
     <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
@@ -193,6 +197,14 @@ function App() {
         <AdminPage />
         <ToastContainer />
       </TooltipProvider>
+    );
+  }
+
+  if (route === "image") {
+    return (
+      <Suspense fallback={<LoadingSpinner message="Loading image editor..." />}>
+        <ImagePage />
+      </Suspense>
     );
   }
 

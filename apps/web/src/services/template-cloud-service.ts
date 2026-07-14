@@ -4,9 +4,7 @@ import type {
   ScriptableTemplate,
 } from "@openreel/core";
 
-import { OPENREEL_CLOUD_URL } from "../config/api-endpoints";
-
-const CLOUD_API_URL = OPENREEL_CLOUD_URL;
+import { API_URL } from "../config/api-endpoints";
 
 export interface CloudTemplate extends TemplateSummary {
   author?: string;
@@ -15,13 +13,13 @@ export interface CloudTemplate extends TemplateSummary {
 export class TemplateCloudService {
   private apiUrl: string;
 
-  constructor(apiUrl: string = CLOUD_API_URL) {
+  constructor(apiUrl: string = API_URL) {
     this.apiUrl = apiUrl;
   }
 
   async listTemplates(): Promise<CloudTemplate[]> {
     try {
-      const response = await fetch(`${this.apiUrl}/templates`);
+      const response = await fetch(`${this.apiUrl}/api/templates`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -35,7 +33,7 @@ export class TemplateCloudService {
 
   async getTemplate(id: string): Promise<Template | null> {
     try {
-      const response = await fetch(`${this.apiUrl}/templates/${id}`);
+      const response = await fetch(`${this.apiUrl}/api/templates/${id}`);
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -51,7 +49,7 @@ export class TemplateCloudService {
     template: Template,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`${this.apiUrl}/templates`, {
+      const response = await fetch(`${this.apiUrl}/api/templates`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -79,7 +77,7 @@ export class TemplateCloudService {
     id: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`${this.apiUrl}/templates/${id}`, {
+      const response = await fetch(`${this.apiUrl}/api/templates/${id}`, {
         method: "DELETE",
       });
 
@@ -101,7 +99,7 @@ export class TemplateCloudService {
 
   async checkHealth(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.apiUrl}/health`);
+      const response = await fetch(`${this.apiUrl}/api/templates/health`);
       return response.ok;
     } catch {
       return false;
@@ -110,7 +108,7 @@ export class TemplateCloudService {
 
   async listScriptableTemplates(): Promise<ScriptableTemplate[]> {
     try {
-      const response = await fetch(`${this.apiUrl}/templates/scriptable`);
+      const response = await fetch(`${this.apiUrl}/api/templates/scriptable/list`);
       if (!response.ok) {
         return [];
       }
@@ -124,7 +122,7 @@ export class TemplateCloudService {
 
   async getScriptableTemplate(id: string): Promise<ScriptableTemplate | null> {
     try {
-      const response = await fetch(`${this.apiUrl}/templates/scriptable/${id}`);
+      const response = await fetch(`${this.apiUrl}/api/templates/scriptable/${id}`);
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error(`HTTP error! status: ${response.status}`);

@@ -1,14 +1,17 @@
 /**
  * API proxy utility for third-party service calls.
  *
- * In development: calls third-party APIs directly (for convenience).
- * In production: routes through Cloudflare Pages Functions proxy so
- * API keys never leave the same origin.
+ * All calls to ElevenLabs, OpenAI, and Anthropic pass through our own
+ * Express server (/api/proxy/*) so API keys never leave the browser.
+ * The server acts as a same-origin proxy, forwarding to the provider.
+ *
+ * In development and production alike, calls go through the server
+ * at API_URL to ensure keys are never exposed to the browser.
  */
 
-const isDev = import.meta.env.DEV;
+import { API_URL } from "../config/api-endpoints";
 
-const DIRECT_CONFIG = {
+const PROXY_CONFIG = {
   elevenlabs: {
     baseUrl: "https://api.elevenlabs.io/v1",
     authHeaders: (key: string): Record<string, string> => ({
@@ -31,15 +34,16 @@ const DIRECT_CONFIG = {
   },
 } as const;
 
-export type ApiService = keyof typeof DIRECT_CONFIG;
+export type ApiService = keyof typeof PROXY_CONFIG;
 
 /**
- * Fetch from a third-party API, automatically routing through the proxy
- * in production builds.
+ * Fetch from a third-party API through our Express proxy.
+ * API key travels only to our server (same-origin), never to the
+ * third party directly from the browser.
  *
  * @param service - Target service (elevenlabs, openai, anthropic)
- * @param path - API path including leading slash, e.g. "/models" or "/text-to-speech/voiceId"
- * @param apiKey - Decrypted API key for the service
+ * @param path - API path including leading slash, e.g. "/models"
+ * @param apiKey - Decrypted API key for the service (sent to our server only)
  * @param options - Standard RequestInit (method, body, extra headers, etc.)
  */
 export async function apiFetch(
@@ -50,20 +54,8 @@ export async function apiFetch(
 ): Promise<Response> {
   const extraHeaders = (options.headers ?? {}) as Record<string, string>;
 
-  if (isDev) {
-    const config = DIRECT_CONFIG[service];
-    const url = `${config.baseUrl}${path}`;
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...config.authHeaders(apiKey),
-        ...extraHeaders,
-      },
-    });
-  }
-
-  // Production: route through same-origin proxy
-  const url = `/api/proxy/${service}${path}`;
+  // Always proxy through our Express server (both dev and prod)
+  const url = `${API_URL}/api/proxy/${service}${path}`;
   return fetch(url, {
     ...options,
     headers: {

@@ -11,7 +11,8 @@ export type AppRoute =
   | "landing"
   | "login"
   | "terms"
-  | "privacy";
+  | "privacy"
+  | "image";
 
 export interface RouteParams {
   dimensions?: string;
@@ -54,6 +55,7 @@ function parseHash(hash: string): RouterState {
     "login",
     "terms",
     "privacy",
+    "image",
   ];
 
   if (route === "share" && pathParts[1]) {

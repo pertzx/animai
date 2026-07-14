@@ -10,6 +10,8 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@openreel/core": path.resolve(__dirname, "../../packages/core/src"),
+      "@openreel/image": path.resolve(__dirname, "../../apps/image/src"),
+      "@openreel/image-core": path.resolve(__dirname, "../../packages/image-core/src"),
     },
   },
   worker: {

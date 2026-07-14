@@ -7,9 +7,12 @@ import { config } from "./config.js";
 import {
   AiProvider,
   CatalogItem,
+  CloudTemplate,
   Plan,
   ProjectMeta,
   Setting,
+  Share,
+  ShareHighlight,
   User,
   getBillingSettings,
   seedPlans,
@@ -40,6 +43,7 @@ app.post(
 );
 
 app.use(express.json({ limit: "4mb" }));
+app.use(express.urlencoded({ extended: true, limit: "4mb" }));
 
 // ── Auth (prd.txt §6.1) ─────────────────────────────────────────────
 app.post("/api/auth/register", async (req, res) => {
@@ -540,6 +544,339 @@ app.post("/api/ai/v1/chat/completions", requireAuth, handleChatCompletions);
 app.post("/api/ai/compact", requireAuth, handleCompact);
 app.post("/api/ai/search", requireAuth, handleSearch);
 app.get("/api/ai/usage", requireAuth, handleUsage);
+
+// ── Share / compartilhamento público (prd.txt §6.2) ─────────────────
+const SHORT_ID_CHARS = "abcdefghijkmnopqrstuvwxyz23456789";
+
+function generateShortId(length = 10): string {
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  return Array.from(arr)
+    .map((b) => SHORT_ID_CHARS[b % SHORT_ID_CHARS.length])
+    .join("");
+}
+
+app.post("/api/share", requireAuth, async (req, res) => {
+  const { filename, size, expiresAt, downloadPath } = req.body as {
+    filename?: string;
+    size?: number;
+    expiresAt?: number;
+    downloadPath?: string;
+  };
+  if (!filename || size === undefined || !expiresAt || !downloadPath) {
+    res.status(400).json({ error: "filename, size, expiresAt e downloadPath são obrigatórios." });
+    return;
+  }
+  const shareId = generateShortId();
+  await Share.create({
+    shareId,
+    userId: req.auth!.userId,
+    filename,
+    size,
+    expiresAt,
+    downloadPath,
+  });
+  res.json({ shareId, expiresAt });
+});
+
+app.get("/api/share/:shareId", async (req, res) => {
+  const share = await Share.findOne({ shareId: req.params.shareId });
+  if (!share) {
+    res.status(404).json({ error: "Share não encontrado." });
+    return;
+  }
+  if (Date.now() > share.expiresAt) {
+    res.status(410).json({ error: "Este link expirou." });
+    return;
+  }
+  res.json({
+    shareId: share.shareId,
+    filename: share.filename,
+    size: share.size,
+    expiresAt: share.expiresAt,
+    expiresIn: share.expiresAt - Date.now(),
+  });
+});
+
+app.get("/api/share/:shareId/download", async (req, res) => {
+  const share = await Share.findOne({ shareId: req.params.shareId });
+  if (!share) {
+    res.status(404).json({ error: "Share não encontrado." });
+    return;
+  }
+  if (Date.now() > share.expiresAt) {
+    res.status(410).json({ error: "Este link expirou." });
+    return;
+  }
+  // Redirect para a URL de download interna.
+  res.redirect(302, share.downloadPath);
+});
+
+app.get("/api/share/health", (_req, res) => res.json({ ok: true }));
+
+// ── Templates community (prd.txt §5 — catálogo público) ─────────────
+app.get("/api/templates", async (_req, res) => {
+  const templates = await CloudTemplate.find({ published: true })
+    .sort({ createdAt: -1 })
+    .limit(100);
+  res.json({
+    templates: templates.map((t) => ({
+      templateId: t.templateId,
+      author: t.author,
+      name: t.name,
+      description: t.description,
+      scriptable: t.scriptable,
+      premium: t.premium,
+    })),
+  });
+});
+
+app.get("/api/templates/:id", async (req, res) => {
+  const template = await CloudTemplate.findOne({ templateId: req.params.id });
+  if (!template || !template.published) {
+    res.status(404).json({ error: "Template não encontrado." });
+    return;
+  }
+  res.json(template);
+});
+
+app.post("/api/templates", requireAuth, async (req, res) => {
+  const { name, description, payload, scriptable, published } = req.body as {
+    name?: string;
+    description?: string;
+    payload?: unknown;
+    scriptable?: boolean;
+    published?: boolean;
+  };
+  if (!name || !payload) {
+    res.status(400).json({ error: "name e payload são obrigatórios." });
+    return;
+  }
+  const user = await User.findById(req.auth!.userId);
+  const templateId = generateShortId();
+  const template = await CloudTemplate.create({
+    templateId,
+    userId: req.auth!.userId,
+    author: user?.name ?? "Anonymous",
+    name,
+    description: description ?? "",
+    payload,
+    scriptable: Boolean(scriptable),
+    published: Boolean(published),
+  });
+  res.json({ templateId, success: true });
+});
+
+app.delete("/api/templates/:id", requireAuth, async (req, res) => {
+  const template = await CloudTemplate.findOne({ templateId: req.params.id });
+  if (!template) {
+    res.status(404).json({ error: "Template não encontrado." });
+    return;
+  }
+  if (String(template.userId) !== req.auth!.userId) {
+    res.status(403).json({ error: "Você não pode deletar este template." });
+    return;
+  }
+  await template.deleteOne();
+  res.json({ success: true });
+});
+
+app.get("/api/templates/scriptable/list", async (_req, res) => {
+  const templates = await CloudTemplate.find({ published: true, scriptable: true })
+    .sort({ createdAt: -1 })
+    .limit(100);
+  res.json({ templates });
+});
+
+app.get("/api/templates/scriptable/:id", async (req, res) => {
+  const template = await CloudTemplate.findOne({
+    templateId: req.params.id,
+    published: true,
+    scriptable: true,
+  });
+  if (!template) {
+    res.status(404).json({ error: "Template scriptable não encontrado." });
+    return;
+  }
+  res.json(template);
+});
+
+// ── Highlights extraction (IA no server — usa transcrição local + LLM) ─
+app.post("/api/highlights", requireAuth, async (req, res) => {
+  const { transcript, energy, duration, preferences } = req.body as {
+    transcript?: Array<{ text: string; start: number; end: number }>;
+    energy?: Array<{ start: number; end: number; rmsDb: number; peakDb: number }>;
+    duration?: number;
+    preferences?: { targetClipCount?: number; minClipDuration?: number; maxClipDuration?: number };
+  };
+  if (!transcript || !Array.isArray(transcript)) {
+    res.status(400).json({ error: "transcript é obrigatório." });
+    return;
+  }
+  // Highlights são gerados client-side via Whisper local + análise de energia
+  // (packages/core/audio/highlight-analyzer.ts). O server só persiste resultados.
+  const targetCount = preferences?.targetClipCount ?? 5;
+  const minDuration = preferences?.minClipDuration ?? 5;
+  const maxDuration = preferences?.maxClipDuration ?? 60;
+
+  // Ordena por "energia" (peakDb) e filtra por duração
+  const scored = (energy ?? [])
+    .filter((e) => e.end - e.start >= minDuration && e.end - e.start <= maxDuration)
+    .sort((a, b) => b.peakDb - a.peakDb)
+    .slice(0, targetCount)
+    .map((e, i) => ({
+      start: e.start,
+      end: e.end,
+      score: Math.round((1 - i / targetCount) * 100) / 100,
+      title: `Highlight ${i + 1}`,
+      reason: `High energy: ${e.peakDb.toFixed(1)} dB peak`,
+    }));
+
+  // Persiste no banco para contexto da IA
+  const shareId = generateShortId();
+  await Promise.all(
+    scored.map((h) =>
+      ShareHighlight.create({
+        shareId,
+        userId: req.auth!.userId,
+        ...h,
+      }),
+    ),
+  );
+
+  res.json({ highlights: scored, shareId });
+});
+
+// ── Proxy de APIs de terceiros (same-origin para evitar CORS + não expor keys no client) ─
+// Todas as chamadas a ElevenLabs/OpenAI/Anthropic passam por aqui.
+// O client envia a key no header x-proxy-api-key; o server repassa ao provider.
+app.all("/api/proxy/elevenlabs/*", requireAuth, async (req, res) => {
+  const apiKey = req.headers["x-proxy-api-key"] as string;
+  if (!apiKey) {
+    res.status(401).json({ error: "x-proxy-api-key é obrigatório." });
+    return;
+  }
+  const path = req.params[0];
+  const url = `https://api.elevenlabs.io/v1/${path}`;
+  try {
+    const response = await fetch(url, {
+      method: req.method,
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        ...(req.headers["content-type"] ? { "content-type": req.headers["content-type"] as string } : {}),
+      },
+      body: ["POST", "PUT", "PATCH"].includes(req.method) ? JSON.stringify(req.body) : undefined,
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch {
+    res.status(502).json({ error: "Erro ao comunicar com ElevenLabs." });
+  }
+});
+
+app.all("/api/proxy/openai/*", requireAuth, async (req, res) => {
+  const apiKey = req.headers["x-proxy-api-key"] as string;
+  if (!apiKey) {
+    res.status(401).json({ error: "x-proxy-api-key é obrigatório." });
+    return;
+  }
+  const path = req.params[0];
+  const url = `https://api.openai.com/v1/${path}`;
+  try {
+    const response = await fetch(url, {
+      method: req.method,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: ["POST", "PUT", "PATCH"].includes(req.method) ? JSON.stringify(req.body) : undefined,
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch {
+    res.status(502).json({ error: "Erro ao comunicar com OpenAI." });
+  }
+});
+
+app.all("/api/proxy/anthropic/*", requireAuth, async (req, res) => {
+  const apiKey = req.headers["x-proxy-api-key"] as string;
+  if (!apiKey) {
+    res.status(401).json({ error: "x-proxy-api-key é obrigatório." });
+    return;
+  }
+  const path = req.params[0];
+  const url = `https://api.anthropic.com/v1/${path}`;
+  try {
+    const response = await fetch(url, {
+      method: req.method,
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: ["POST", "PUT", "PATCH"].includes(req.method) ? JSON.stringify(req.body) : undefined,
+    });
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch {
+    res.status(502).json({ error: "Erro ao comunicar com Anthropic." });
+  }
+});
+
+// ── TTS synthesize (pass-through ElevenLabs) ──────────────────────
+app.post("/api/tts/synthesize", requireAuth, async (req, res) => {
+  const apiKey = req.headers["x-proxy-api-key"] as string;
+  if (!apiKey) {
+    res.status(401).json({ error: "x-proxy-api-key é obrigatório." });
+    return;
+  }
+  const { text, voice, speed } = req.body as { text?: string; voice?: string; speed?: number };
+  if (!text || !voice) {
+    res.status(400).json({ error: "text e voice são obrigatórios." });
+    return;
+  }
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voice, {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_monolingual_v1",
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      res.status(response.status).json(err);
+      return;
+    }
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Disposition", "attachment; filename=tts.mp3");
+    // Pipe Web ReadableStream → Node.js Express Response (using getReader)
+    const reader = response.body?.getReader();
+    if (!reader) {
+      res.status(502).json({ error: "No response body from ElevenLabs." });
+      return;
+    }
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); break; }
+        res.write(value as Buffer);
+      }
+    } catch {
+      res.destroy();
+    }
+  } catch {
+    res.status(502).json({ error: "Erro ao comunicar com ElevenLabs TTS." });
+  }
+});
 
 // ── Billing ─────────────────────────────────────────────────────────
 app.post("/api/billing/checkout", requireAuth, createCheckoutSession);

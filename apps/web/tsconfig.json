@@ -12,7 +12,11 @@
       "@openreel/core": ["../../packages/core/src/index.ts"],
       "@openreel/core/*": ["../../packages/core/src/*"],
       "@openreel/ui": ["../../packages/ui/src/index.ts"],
-      "@openreel/ui/*": ["../../packages/ui/src/*"]
+      "@openreel/ui/*": ["../../packages/ui/src/*"],
+      "@openreel/image": ["../../apps/image/src/App.tsx"],
+      "@openreel/image/*": ["../../apps/image/src/*"],
+      "@openreel/image-core": ["../../packages/image-core/src/index.ts"],
+      "@openreel/image-core/*": ["../../packages/image-core/src/*"]
     }
   },
   "include": ["src"]

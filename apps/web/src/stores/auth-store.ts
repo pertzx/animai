@@ -8,9 +8,8 @@
 
 import { create } from "zustand";
 
-export const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  "http://localhost:4000";
+import { API_URL } from "../config/url";
+export { API_URL };
 
 export interface AuthUser {
   id: string;

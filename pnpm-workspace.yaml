@@ -1,3 +1,7 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - "apps/server"
+  - "apps/web"
+  - "apps/image"
+  - "packages/core"
+  - "packages/image-core"
+  - "packages/ui"

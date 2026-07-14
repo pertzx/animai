@@ -3,11 +3,9 @@ import { Sparkles, Play, Check, Loader2 } from "lucide-react";
 import { useProjectStore } from "../../../stores/project-store";
 import { useTimelineStore } from "../../../stores/timeline-store";
 import {
-  getTranscriptionService,
-  initializeTranscriptionService,
   type TranscriptWord,
 } from "@openreel/core";
-import { OPENREEL_TRANSCRIBE_URL } from "../../../config/api-endpoints";
+import { transcribeMediaToSubtitles } from "../../../services/ai/transcription-manager";
 import {
   extractHighlights,
   type HighlightResult,
@@ -61,13 +59,9 @@ export const HighlightExtractorPanel: React.FC<HighlightExtractorPanelProps> = (
       setPhase("Transcribing audio...");
       setProgress(5);
 
-      const transcriptionService = getTranscriptionService() || initializeTranscriptionService({
-        apiEndpoint: `${OPENREEL_TRANSCRIBE_URL}/transcribe`,
-      });
-      const subtitles = await transcriptionService.transcribeClip(
-        clip,
-        mediaItem,
-        (p) => setProgress(Math.round(p.progress * 20)),
+      const subtitles = await transcribeMediaToSubtitles(
+        mediaItem.id,
+        (p) => setProgress(Math.round(p.progress * 0.2)),
       );
 
       const transcript: TranscriptWord[] = subtitles.flatMap((sub) =>

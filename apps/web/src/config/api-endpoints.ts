@@ -1,27 +1,13 @@
 /**
- * Centralized API endpoint configuration.
+ * Centralized API endpoint configuration — AnimAI unified architecture.
  *
- * All external service URLs should be defined here so they can be
- * swapped for different environments or self-hosted instances.
+ * All calls to our own backend go through API_URL.
+ * Third-party API calls (ElevenLabs, OpenAI, Anthropic) go through
+ * our same-origin proxy (/api/proxy/*) so keys never leave the browser
+ * directly. The proxy is handled by apiFetch() in services/api-proxy.ts.
+ *
+ * NOTE: the canonical URL is defined in config/url.ts — este arquivo
+ * re-exporta para compatibilidade com quem já importa de api-endpoints.ts.
  */
 
-const isDev = import.meta.env.DEV;
-
-/** OpenReel cloud services */
-export const OPENREEL_CLOUD_URL = isDev
-  ? "http://localhost:8787"
-  : "https://openreel-cloud.niiyeboah1996.workers.dev";
-
-/** OpenReel transcription / TTS service */
-export const OPENREEL_TTS_URL = "https://transcribe.openreel.video";
-
-/** OpenReel transcription service (GPU) */
-export const OPENREEL_TRANSCRIBE_URL = "https://cloud.openreel.video";
-
-/**
- * Third-party API base URLs.
- * These are used by the api-proxy service in dev mode (direct calls)
- * and by the Cloudflare Pages Function proxy in production.
- * Application code should use apiFetch() from services/api-proxy.ts
- * instead of importing these directly.
- */
+export { API_URL } from "./url";

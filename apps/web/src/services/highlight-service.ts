@@ -4,6 +4,8 @@ import {
   type AudioSegmentMetrics,
 } from "@openreel/core";
 
+import { API_URL } from "../config/api-endpoints";
+
 export interface HighlightResult {
   start: number;
   end: number;
@@ -28,7 +30,7 @@ const DEFAULT_PREFERENCES: HighlightPreferences = {
 
 type ProgressCallback = (phase: string, progress: number, message: string) => void;
 
-const API_BASE = import.meta.env.VITE_CLOUD_API_URL || "https://openreel-cloud.niiyeboah1996.workers.dev";
+const API_BASE = API_URL;
 
 export async function extractHighlights(
   audioBuffer: AudioBuffer,
@@ -53,7 +55,7 @@ export async function extractHighlights(
 
   onProgress?.("ai", 40, "Sending to AI for highlight detection...");
 
-  const response = await fetch(`${API_BASE}/highlights`, {
+  const response = await fetch(`${API_BASE}/api/highlights`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

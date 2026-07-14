@@ -7,6 +7,7 @@
  * setProjectTranscript, so the AI agent can "see" what is being said.
  */
 
+import type { Subtitle } from "@openreel/core";
 import type { MediaItem } from "@openreel/core";
 import { useProjectStore } from "../../stores/project-store";
 import { toast } from "../../stores/notification-store";
@@ -186,3 +187,88 @@ class TranscriptionManager {
 }
 
 export const transcriptionManager = new TranscriptionManager();
+
+/**
+ * Progress callback shape expected by InspectorPanel / HighlightExtractorPanel
+ * (same interface as WhisperTranscriptionProgress from @openreel/core).
+ */
+export interface LocalTranscriptionProgress {
+  phase: "extracting" | "uploading" | "transcribing" | "processing" | "complete" | "error";
+  progress: number;
+  message: string;
+}
+
+let _worker: Worker | null = null;
+function getSharedWorker(): Worker {
+  if (!_worker) {
+    _worker = new Worker(
+      new URL("./whisper.worker.ts", import.meta.url),
+      { type: "module" },
+    );
+  }
+  return _worker;
+}
+
+/**
+ * One-shot local transcription: media item → Subtitle[] (same contract as
+ * TranscriptionService.transcribeClip from @openreel/core, but 100% local).
+ *
+ * Replaces the legacy cloud path (TranscriptionService → cloud.openreel.video)
+ * that InspectorPanel and HighlightExtractorPanel used to call.
+ */
+export async function transcribeMediaToSubtitles(
+  mediaId: string,
+  onProgress?: (p: LocalTranscriptionProgress) => void,
+): Promise<Subtitle[]> {
+  const item = useProjectStore
+    .getState()
+    .project.mediaLibrary.items.find((m) => m.id === mediaId);
+  if (!item) throw new Error(`Media item ${mediaId} not found`);
+
+  onProgress?.({ phase: "extracting", progress: 5, message: "Decoding audio…" });
+  const audio = await decodeMediaAudio(mediaId);
+  if (!audio) throw new Error("Could not decode audio from media item");
+
+  const worker = getSharedWorker();
+  const requestId = `oneshot-${mediaId}-${Date.now()}`;
+
+  onProgress?.({ phase: "transcribing", progress: 30, message: "Running Whisper…" });
+
+  const segments = await new Promise<Array<{ start: number; end: number; text: string }>>(
+    (resolve, reject) => {
+      const onMessage = (event: MessageEvent<WhisperResponse>) => {
+        const msg = event.data;
+        if (msg.id !== requestId) return;
+        if (msg.type === "progress") {
+          onProgress?.({
+            phase: "transcribing",
+            progress: 30 + Math.round((msg.progress ?? 0) * 0.5),
+            message: msg.status ?? "Transcribing…",
+          });
+          return;
+        }
+        worker.removeEventListener("message", onMessage);
+        if (msg.type === "result") {
+          resolve(msg.segments);
+        } else {
+          reject(new Error(msg.message ?? "Unknown Whisper error"));
+        }
+      };
+      worker.addEventListener("message", onMessage);
+      worker.postMessage({ id: requestId, audio }, [audio.buffer]);
+    },
+  );
+
+  onProgress?.({ phase: "processing", progress: 90, message: "Formatting subtitles…" });
+
+  const subtitles: Subtitle[] = segments.map((seg, i) => ({
+    id: `local-sub-${i}-${Date.now()}`,
+    text: seg.text,
+    startTime: seg.start,
+    endTime: seg.end,
+  }));
+
+  onProgress?.({ phase: "complete", progress: 100, message: `${subtitles.length} segments` });
+
+  return subtitles;
+}

@@ -1,0 +1,23 @@
+/**
+ * Image editor integration CSS — stripped @tailwind directives.
+ * The web app already compiles Tailwind. This file only provides
+ * image-specific UI overrides when #/image is active.
+ */
+
+.fotovista-editor {
+  /* Copied from apps/image/src/index.css dark root variables */
+  --color-background-secondary: 23 23 23;
+  --color-background-tertiary: 30 30 30;
+  --color-background-elevated: 38 38 38;
+  --color-text-primary: 250 250 250;
+  --color-text-secondary: 161 161 161;
+  --color-text-muted: 115 115 115;
+  --color-border-hover: 64 64 64;
+  --color-border-active: 82 82 82;
+}
+
+/* Image editor canvas cursor overrides */
+.fotovista-editor .canvas-crosshair { cursor: crosshair; }
+.fotovista-editor .canvas-eraser { cursor: cell; }
+.fotovista-editor .canvas-pen { cursor: pointer; }
+.fotovista-editor .canvas-hand { cursor: grab; }

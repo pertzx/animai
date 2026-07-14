@@ -109,25 +109,8 @@ export const Timeline: React.FC = () => {
     toggleSnap,
     timelineMaximized,
     toggleTimelineMaximized,
-    trackHeadersVisible,
-    toggleTrackHeaders,
   } = useUIStore();
   const selectedClipIds = getSelectedClipIds();
-
-  // On narrow viewports the 128px track-header column devours ~⅓ of the
-  // screen, so auto-collapse once on mount if the viewport is narrow.
-  // The chevron toggle (rendered over the column edge) keeps the user in
-  // control after the first auto-set.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 768px)");
-    if (mq.matches) {
-      toggleTrackHeaders();
-    }
-    // Run once on mount; we explicitly do not want to react to viewport
-    // resize changes after the user has interacted with the toggle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const { getTitleEngine, getGraphicsEngine } = useEngineStore();
   const titleEngine = getTitleEngine();
@@ -250,7 +233,6 @@ export const Timeline: React.FC = () => {
 
   useEffect(() => {
     if (playbackState !== "playing") return;
-    if (useTimelineStore.getState().isDraggingClip) return;
     const el = tracksRef.current;
     if (!el) return;
 
@@ -406,49 +388,16 @@ export const Timeline: React.FC = () => {
   }, [clearSelection]);
 
   const handleBoxSelectionStart = useCallback(
-    (e: React.PointerEvent) => {
-      // Only left mouse button OR pen/touch long-press activates box-selection
-      if (e.button !== 0 && e.pointerType === "mouse") return;
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
       if ((e.target as HTMLElement).closest(".clip-component")) return;
-
-      // For touch, use long-press (300ms) before box-selection, so the user
-      // can scroll the timeline on touch (the container has touch-action pan).
-      // Without long-press, an immediate tap would compete with scroll.
-      if (e.pointerType === "touch") {
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const timer = window.setTimeout(() => {
-          const rect = tracksRef.current?.getBoundingClientRect();
-          if (!rect) return;
-          const x = startX - rect.left + (tracksRef.current?.scrollLeft ?? 0);
-          const y = startY - rect.top + (tracksRef.current?.scrollTop ?? 0);
-          setIsBoxSelecting(true);
-          setSelectionBox({ startX: x, startY: y, currentX: x, currentY: y });
-        }, 300);
-        // Cancel if finger moved (likely scroll) or lifted before threshold
-        const cancelMove = (ev: PointerEvent) => {
-          if (Math.abs(ev.clientX - startX) > 8 || Math.abs(ev.clientY - startY) > 8) {
-            window.clearTimeout(timer);
-            window.removeEventListener("pointermove", cancelMove);
-            window.removeEventListener("pointerup", cancelUp);
-          }
-        };
-        const cancelUp = () => {
-          window.clearTimeout(timer);
-          window.removeEventListener("pointermove", cancelMove);
-          window.removeEventListener("pointerup", cancelUp);
-        };
-        window.addEventListener("pointermove", cancelMove);
-        window.addEventListener("pointerup", cancelUp);
-        return;
-      }
 
       const rect = tracksRef.current?.getBoundingClientRect();
       if (!rect) return;
 
       // Convert viewport coordinates to timeline coordinates by accounting for scroll position
-      const x = e.clientX - rect.left + (tracksRef.current?.scrollLeft ?? scrollX);
-      const y = e.clientY - rect.top + (tracksRef.current?.scrollTop ?? scrollY);
+      const x = e.clientX - rect.left + scrollX;
+      const y = e.clientY - rect.top + scrollY;
 
       setIsBoxSelecting(true);
       setSelectionBox({
@@ -1049,11 +998,9 @@ export const Timeline: React.FC = () => {
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          <div
-            className={`${trackHeadersVisible ? "w-32" : "w-0"} bg-bg-1 border-r border-border shrink-0 z-20 overflow-hidden relative transition-[width] duration-150 ease-out`}
-          >
+          <div className="w-32 bg-bg-1 border-r border-border shrink-0 z-20 overflow-hidden">
             <div
-              className="flex flex-col min-w-32"
+              className="flex flex-col"
               style={{ transform: `translateY(-${scrollY}px)` }}
             >
               {visualOrderTracks.map((track, i) => {
@@ -1078,25 +1025,11 @@ export const Timeline: React.FC = () => {
                 );
               })}
             </div>
-            {/* Always-visible chevron toggle. Sits on the right edge of the
-                headers column so it remains reachable when the column is
-                collapsed (it overlaps the adjacent scroll container). */}
-            <button
-              type="button"
-              onClick={toggleTrackHeaders}
-              aria-label={trackHeadersVisible ? "Hide track headers" : "Show track headers"}
-              aria-pressed={!trackHeadersVisible}
-              title={trackHeadersVisible ? "Hide track headers" : "Show track headers"}
-              className="absolute top-1/2 -right-3 -translate-y-1/2 z-30 w-6 h-10 rounded-r-md bg-bg-2 border border-l-0 border-border hover:bg-bg-3 text-text-secondary hover:text-text-primary text-xs leading-none flex items-center justify-center shadow-sm"
-            >
-              {trackHeadersVisible ? "‹" : "›"}
-            </button>
           </div>
 
           <div
             ref={tracksRef}
             className="flex-1 bg-background relative overflow-auto custom-scrollbar"
-            style={{ touchAction: "pan-x pan-y" }}
             onScroll={(e) => {
               setScrollX(e.currentTarget.scrollLeft);
               setScrollY(e.currentTarget.scrollTop);
