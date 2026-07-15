@@ -1,22 +1,20 @@
 /**
- * Layout mobile verdadeiramente inspirado no CapCut.
+ * Layout mobile CapCut — proporções equilibradas.
  *
- * Estrutura (top → bottom):
- *  ┌─────────────────────────┐
- *  │ ‹ Nome do projeto       │ ← header mínimo
- *  ├─────────────────────────┤
- *  │                         │
- *  │     VIDEO PREVIEW       │ ← maior parte da tela
- *  │    (canvas + overlay)   │
- *  │                         │
- *  ├─────────────────────────┤
- *  │ Cortar │ Dividir │ Vel. │ ← action bar (ferramentas)
- *  ├─────────────────────────┤
- *  │   ◄━━━━━━━●━━━━━━━━►   │ ← timeline horizontal fina
- *  └─────────────────────────┘
- *
- * Panels (Assets, Inspector, Chat) abrem como bottom sheets
- * ou drawer lateral (DrawerMobile).
+ *  ┌─────────────────────────────┐
+ *  │ ‹ Nome do projeto  Exportar │ ~40 px
+ *  ├─────────────────────────────┤
+ *  │                             │
+ *  │      VIDEO PREVIEW          │ ~40 dvh (ajustável)
+ *  │                             │
+ *  ├─────────────────────────────┤
+ *  │ Cortar│Dividir│Vel.│Áudio…  │ ~48 px
+ *  ├─────────────────────────────┤
+ *  │                             │
+ *  │        TIMELINE             │ ~35 dvh (cliques visíveis)
+ *  │  ◄━━━━━━━●━━━━━━━━►        │
+ *  │                             │
+ *  └─────────────────────────────┘
  */
 
 import React, { useState } from "react";
@@ -27,27 +25,26 @@ import {
   Volume2,
   Type,
   Plus,
-  Play,
 } from "lucide-react";
 import { Preview } from "./Preview";
 import { Timeline } from "./Timeline";
-import DrawerMobile from "../DrawerMobile";
 import { useProjectStore } from "../../stores/project-store";
 import { useTimelineStore } from "../../stores/timeline-store";
+import DrawerMobile from "../DrawerMobile";
 
-/** Botão redondo grande para ação na toolbar */
-const ToolBtn: React.FC<{
+/** Botão de ação na barra de ferramentas */
+const ActionBtn: React.FC<{
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
 }> = ({ icon, label, onClick }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center gap-0.5 px-3 py-1 text-fg-muted hover:text-fg active:text-accent transition-colors"
+    className="flex flex-col items-center gap-0.5 px-2 py-1 text-fg-muted hover:text-fg active:text-accent transition-colors min-w-0"
     title={label}
   >
-    <span className="text-xl">{icon}</span>
-    <span className="text-[9px] leading-tight">{label}</span>
+    <span className="text-lg">{icon}</span>
+    <span className="text-[10px] leading-tight whitespace-nowrap">{label}</span>
   </button>
 );
 
@@ -58,9 +55,9 @@ export const MobileEditorLayout: React.FC = () => {
   const isPlaying = playbackState === "playing";
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-black text-white font-sans">
-      {/* ─── Header mínimo (CapCut style) ─── */}
-      <header className="flex items-center gap-2 px-3 py-2 bg-black/80 z-10">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-black text-white font-sans relative">
+      {/* ─── Header ─── */}
+      <header className="flex items-center gap-2 px-3 py-2 bg-black/90 z-10 shrink-0">
         <button
           onClick={() => setShowDrawer(true)}
           aria-label="Menu"
@@ -76,38 +73,40 @@ export const MobileEditorLayout: React.FC = () => {
         <button className="text-xs text-accent font-semibold">Exportar</button>
       </header>
 
-      {/* ─── Preview (ocupa o máximo de espaço) ─── */}
-      <div className="flex-1 relative bg-stage-bg">
+      {/* ─── Preview ─── */}
+      <div className="shrink-0 bg-stage-bg relative" style={{ height: "40dvh" }}>
         <Preview />
       </div>
 
-      {/* ─── Action bar (ferramentas de edição) ─── */}
-      <div className="flex items-center justify-around border-t border-white/10 bg-black/70 py-2">
-        <ToolBtn icon={<Scissors size={20} />} label="Cortar" />
-        <ToolBtn icon={<Layers size={20} />} label="Dividir" />
-        <ToolBtn icon={<Gauge size={20} />} label="Veloc." />
-        <ToolBtn icon={<Volume2 size={20} />} label="Áudio" />
-        <ToolBtn icon={<Type size={20} />} label="Texto" />
-        <ToolBtn icon={<Plus size={20} />} label="Adicionar" />
+      {/* ─── Action bar ─── */}
+      <div className="shrink-0 flex items-center justify-evenly border-t border-white/10 bg-black/80 py-1.5 overflow-x-auto">
+        <ActionBtn icon={<Scissors size={18} />} label="Cortar" />
+        <ActionBtn icon={<Layers size={18} />} label="Dividir" />
+        <ActionBtn icon={<Gauge size={18} />} label="Veloc." />
+        <ActionBtn icon={<Volume2 size={18} />} label="Áudio" />
+        <ActionBtn icon={<Type size={18} />} label="Texto" />
+        <ActionBtn icon={<Plus size={18} />} label="Adicionar" />
       </div>
 
-      {/* ─── Timeline (faixa horizontal fina) ─── */}
-      <div className="h-14 border-t border-white/10 bg-black/60 relative">
+      {/* ─── Timeline ─── */}
+      <div className="flex-1 min-h-[120px] border-t border-white/10 bg-black/70 overflow-hidden">
         <Timeline />
       </div>
 
-      {/* ─── Play / Pause flutuante ─── */}
+      {/* ─── Play/Pause ─── */}
       {!isPlaying && (
         <button
           onClick={togglePlayback}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-accent/90 flex items-center justify-center shadow-xl z-20"
+          className="absolute left-1/2 top-[40dvh] -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-accent/80 flex items-center justify-center shadow-xl z-20"
           aria-label="Play"
         >
-          <Play size={28} className="text-white ml-1" />
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+            <polygon points="8,5 19,12 8,19" />
+          </svg>
         </button>
       )}
 
-      {/* ─── Drawer lateral (abre via ←) ─── */}
+      {/* ─── Drawer ─── */}
       {showDrawer && <DrawerMobile onClose={() => setShowDrawer(false)} />}
     </div>
   );
