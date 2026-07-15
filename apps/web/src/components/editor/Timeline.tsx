@@ -52,10 +52,14 @@ import {
   formatTimecode,
   getTrackInfo,
 } from "./timeline/index";
+import { usePinchZoom } from "../../hooks/usePinchZoom";
 
 export const Timeline: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const tracksRef = useRef<HTMLDivElement>(null);
+
+  // Pinch‑zoom support for mobile
+  usePinchZoom(tracksRef);
 
   const {
     project,

@@ -7,7 +7,8 @@ export type PanelId =
   | "effects"
   | "audioMixer"
   | "colorGrading"
-  | "subtitles";
+  | "subtitles"
+  | "mobileDrawer";
 
 export type SelectionType =
   | "clip"
@@ -58,6 +59,11 @@ export interface KeyboardShortcuts {
 }
 
 export interface UIState {
+  /**
+   * Flag indicating if the app is running in mobile layout.
+   * Updated by the layout component based on viewport width.
+   */
+  isMobile: boolean;
   selectedItems: SelectionItem[];
   lastSelectedItem: SelectionItem | null;
   effectApplicationClipId: string | null;
@@ -122,6 +128,7 @@ export interface UIState {
   closeModal: () => void;
   showContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
   hideContextMenu: () => void;
+  setIsMobile: (isMobile: boolean) => void;
   startDrag: (
     type: "clip" | "media" | "effect" | "keyframe",
     data: Record<string, unknown>,
@@ -191,12 +198,14 @@ const DEFAULT_PANELS: Record<PanelId, PanelState> = {
   audioMixer: { visible: false, width: 300 },
   colorGrading: { visible: false, width: 400 },
   subtitles: { visible: false, width: 300 },
+  mobileDrawer: { visible: false, width: 300 },
 };
 
 export const useUIStore = create<UIState>()(
   subscribeWithSelector(
     persist(
       (set, get) => ({
+        isMobile: false,
         selectedItems: [],
         lastSelectedItem: null,
         effectApplicationClipId: null,
@@ -509,6 +518,10 @@ export const useUIStore = create<UIState>()(
 
         hideContextMenu: () => {
           set({ contextMenu: null });
+        },
+
+        setIsMobile: (isMobile: boolean) => {
+          set({ isMobile });
         },
 
         startDrag: (
